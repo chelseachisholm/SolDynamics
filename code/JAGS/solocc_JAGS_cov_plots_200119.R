@@ -1,10 +1,8 @@
-library(rjags)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
 
-
+Analyze_JAGSmodel <- function(x) {
 # Plot the mcmc chain and the posterior sample for p
+
+Samples <- JAGS_model  
 plot(Samples)
 
 # convergence check
@@ -158,3 +156,7 @@ p <- p + xlab("Altitude") + ylab("Conditional effect of X2") + theme_bw()
 
 ## Print the plot
 p
+
+return(p) 
+
+}

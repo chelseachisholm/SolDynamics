@@ -110,6 +110,7 @@ cat(
 #  C[k] ~ dunif(0,1)
 # }
   
+  #Derived quantities block
 psi[1]<-psi0
 n.occ[1]<-sum(occ[1:n.sites,1])
 for(k in 1:(t.max-1)) {
