@@ -23,7 +23,7 @@ source("./code/JAGS/occupancymodel_jags_07052019.R")
 
 # Import Data
 ImportDrakePlan <- drake_plan(
-  jags_data = Importandclean_soldat()
+  jags_data = Importsoldat()
 )
 
 ModelDrakePlan <- drake_plan(

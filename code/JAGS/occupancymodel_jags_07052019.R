@@ -47,10 +47,10 @@ elev<- x$elev
 tann<- x$tann
 ddist<- x$ddist
 elev <- elev[-rem.ind,]
-tann <- tann[-rem.ind,]
+#tann <- tann[-rem.ind,]
 ddist <- ddist[-rem.ind,]
 elev <- (elev-mean(elev)) / sd(elev)
-tann <- (tann-mean(tann, na.rm=T)) / sd(tann, na.rm=T)
+#tann <- (tann-mean(tann, na.rm=T)) / sd(tann, na.rm=T)
 ddist <- (ddist-mean(ddist,na.rm=T)) / sd(ddist,na.rm=T)
 logit <- function(x) {
   log(x/(1 - x))
@@ -83,7 +83,7 @@ cat(
   for(t in 1:(t.max-1)){
   
   #  Model of local survival (1-extinction) at site i
-  logit(phi[i,t]) <- alpha.phi + beta.phi1*elev[i,t] 
+  logit(phi[i,t]) <- beta.phi[1] + beta.phi[2] * elev[i,t] 
 
 
   #  Pairwise 'source strength' calc and colonisation probability
@@ -104,8 +104,8 @@ cat(
  
  # Prior distributions
   psi1 ~ dbeta(1,1)
-  alpha.phi ~ dnorm(0,0.3)
-  beta.phi1 ~ dnorm(0, 0.3)
+  beta.phi[1] ~ dnorm(0,0.3)
+  beta.phi[2] ~ dnorm(0, 0.3)
   a ~ dunif(0,5)
   y2 ~ dunif(0,100)
   # for (t in 1:(t.max-1)){
@@ -118,11 +118,11 @@ psi[1]<-psi1
 n.occ[1]<-sum(z[1:n.sites,1])
 for(t in 1:(t.max-1)) {
     n.occ[t+1]<-sum(z[1:n.sites,t+1])
-    for(i in 1:n.sites) {
-  psi[i,t+1]<-z[i,t]*phi[i,t] + (1-z[i,t])*C[i,t] #issue because not site specific (make hyperparameter?)
-  growthr[i,t+1]<-psi[t+1]/psi[t]
-  turnover[i,t]<-(1-psi[i,t])*C[i,t]/psi[i,t+1]
-    }#i
+  #   for(i in 1:n.sites) {
+  # psi[i,t+1]<-z[i,t]*phi[i,t] + (1-z[i,t])*C[i,t] #issue because not site specific (make hyperparameter?)
+  # growthr[i,t+1]<-psi[t+1]/psi[t]
+  # turnover[i,t]<-(1-psi[i,t])*C[i,t]/psi[i,t+1]
+  #  }#i
   }#t
 }
   ",fill = TRUE)
@@ -139,12 +139,12 @@ Data = list(y = Occ.dat, D.nb = D.nb, NB.mat = NB.mat, n.nb = n.nb, n.sites = n.
 # and to 1 otherwise
 init.occ <- Occ.dat
 init.occ[is.na(init.occ)] <- 1
-inits.fn <- function() list(psi1 = 0.1, alpha.phi=0.1, beta.phi1=0.1, phi=0.1, y2 = 25, a = 1, z = init.occ)
+inits.fn <- function() list(psi1 = 0.1, beta.phi=runif(2,-3,3), phi=0.1, y2 = 25, a = 1, z = init.occ)
 
 # Compile the model and run the MCMC for an adaptation (burn-in) phase
 jagsModel <- jags.model(file= "SPOM.txt", data=Data, n.chains = 3, n.adapt= 1000)
 # Specify parameters for which posterior samples are saved
-para.names <- c("alpha.phi","beta.phi1","y2","a", "n.occ") #could monitor phi or z but will save each sample from each site (so long!)
+para.names <- c("beta.phi","y2","a", "n.occ") #could monitor phi or z but will save each sample from each site (so long!)
   #extract averages across bins of elevation? so for every bin, do this, something like that, so we have estimates for each bin? Or is there a way to just simulate directly
   #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
 

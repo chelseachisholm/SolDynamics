@@ -114,7 +114,7 @@ psi[1]<-psi0
 n.occ[1]<-sum(occ[1:n.sites,1])
 for(k in 1:(t.max-1)) {
 #  psi[k+1]<-psi[k]*phi[k] + (1-psi[k])*C[k]
-  n.occ[k+1]<-sum(occ[1:n.sites,k+1])
+n.occ[k+1]<-sum(occ[1:n.sites,k+1])
 #  growthr[k+1]<-psi[k+1]/psi[k]
 #  turnover[k+1]<-(1-psi[k])*C[k]/psi[k+1]
 }
