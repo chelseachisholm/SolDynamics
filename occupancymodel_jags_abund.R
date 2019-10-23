@@ -1,0 +1,160 @@
+#### RUN MODEL ####
+
+Run_JAGSmodel <- function(x) {
+  
+  
+  source("./helperfunctions.R")
+  
+  # 2008, 2009(NAs), 2010, 2011, 2012
+  x<-jags_data
+  occ <- as.matrix(x$occ)
+  nNeighbours<- x$nsite
+  n.sites <- x$nsite
+  t.max <- ncol(occ)
+  dist.all <- as.matrix(x$D)
+  dem<-x$dem
+  dem[,c(1,2,4)]<- dem[,3]
+  flo<-x$flo
+  
+  #Create covariates
+  elev<- zscale(x$elev)
+  tann<- zscale(x$tann)
+  
+  logit <- function(x) {
+    log(x/(1 - x))
+  }
+  
+  ###########################################################
+  
+  # spatial model
+  
+  # Save a description of the model in JAGS syntax to working directory
+  sink("occ1.txt")
+  cat(
+    "
+    
+    model{
+    
+    # Observation model
+    for(t in 1:t.max){
+      for(i in 1:n.sites){
+        muY[i,t] <- z[i,t] 
+        y[i,t] ~ dbern(muY[i,t])
+      }
+    }
+    
+    # State (process) model
+    # 1st year 
+    for(i in 1:n.sites){
+      z[i,1] ~ dbern(psi1)
+    
+        for(t in 1:(t.max-1)){
+          #  Model of local survival (1-extinction) at site i
+          logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i,t] + beta_phi[3] * tann[i,t]
+    
+    #Pairwise colonization probability based on dispersal kernel 
+		for(n in 1:nNeighbours){ 
+    #Exponential kernel, probability of dispersal to a site based on distance
+      gammaDistPairs[i,n,t] = gamma0 * exp(-gamma0*dist.all[i,n]) * z[n,t] 
+    }
+
+    # Colonization prob
+    gamma[i,t] = 1 - prod(1-gammaDistPairs[i,,t])
+
+    ##Flowering:
+    logit(kappa[i,t]) = beta_f[1] + beta_f[2] * flo[i,t] 
+
+    ##Relative abundance
+    #logit(lambda[i,t]) = beta_a[1] + beta_a[2] * dem[i,t]
+    
+    Ez[i,t+1] = kappa[i,t]*gamma[i,t]*(1-z[i,t]) + phi[i,t]*z[i,t]+0.00001
+		#This won't normalize without the small additive constant. Why? 
+    
+
+    #new occupancy probability  
+    z[i,t+1] ~ dbern(Ez[i,t+1])
+    }
+    }
+    
+    
+    # Prior distributions
+	  psi1 ~ dbeta(1,1)
+
+    #priors for missing data in predictors
+    dem[i,t] ~ dnorm(0, 0.03)  
+    flo[i,t] ~ dnorm(0, 0.03) 
+
+
+    #For predictors
+    ###Survival
+    beta_phi[1] ~ dnorm(0,0.3)
+    beta_phi[2] ~ dnorm(0, 0.3)
+    beta_phi[3] ~ dnorm(0, 0.3)
+    
+    ###Flowering
+    beta_f[1] ~ dnorm(0,0.3)
+    beta_f[2] ~ dnorm(0, 0.3)
+    
+    ###Relative abundance
+    beta_a[1] ~ dnorm(0,0.3)
+    beta_a[2] ~ dnorm(0, 0.3)
+
+    ###Dispersal
+    #gamma0 ~ dbeta(1,1)
+    gamma0 ~ dnorm(0,0.1)  
+    
+    ###Derived quantities block
+    psi[1]=psi1
+    n_occ[1]=sum(z[1:n.sites,1])
+    
+    for(t in 1:(t.max-1)) {
+    n_occ[t+1]=sum(z[1:n.sites,t+1])
+    
+	}
+}
+",fill = TRUE, file="occ1.txt")
+  
+  sink()
+  
+  ###############
+  
+  ### 2) Set up a list that contains all the necessary data
+  Data = list(y = occ, dist.all = dist.all,  n.sites = n.sites, elev = elev, tann = tann,
+              nNeighbours=n.sites, t.max = t.max, flo = flo, dem = dem)
+  
+  # 3) Specify a function to generate inital values for the parameters
+  init.pa = occ
+  inits_fn = function() list(psi1 = 0.1, beta_phi=runif(3,-3,3), beta_f=runif(2,-3, 3), 
+                             beta_a=runif(2,-3, 3), gamma0 = 0.1, z = init.pa)
+  #inits_fn = function() list(psi1 = 0.1, beta_phi=runif(1,-3,3), beta_f=runif(3,-3,3), z = init.pa)
+  
+  jagsModel = jags.model(file= "occ1.txt", data=Data, n.chains = 2, n.adapt= 1000)
+  # Specify parameters for which posterior samples are saved
+  para.names = c("beta_phi","beta_f","beta_a","psi1","gamma0")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+  
+  ### 4) Continue the MCMC runs with sampling
+  Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
+  
+  ### 5) Check the outpt values, and look for convergence:
+  par_vals = summary(Samples)$statistics
+  summary(Samples)
+  plot(Samples,ask=T)
+  
+  ### 6) Compare to values in the underlying population model:
+  p_surv=antilogit(par_vals[5,1])
+  p_birth=antilogit(par_vals[3,1]+par_vals[4,1]*eg_scaled[,1])
+  p_comp = antlogit(par_vals[1,1]+par_vals[2,1]*inv_prob)
+  
+  #An approximation of competition from model: 
+  comp2 =1/(1+nr_act[,,2]*alphas[1,2])
+  #Total expected competitive effect from occupancy model (prob_flowers*prob_comp): 
+  p_comp_tot = p_birth*comp2
+  
+  #Plot
+  plot(p_comp_tot[,1])
+  points(comp2[,1],col="red")
+  
+  
+  return(Samples)
+}
+

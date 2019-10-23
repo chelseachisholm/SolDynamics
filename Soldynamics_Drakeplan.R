@@ -18,7 +18,7 @@ pkgconfig::set_config("drake::strings_in_dots" = "literals")
 pn <- . %>% print(n = Inf)
 
 # source scripts
-source("./data/readdata_jags_allyears.R")
+source("./data/readdata_jags_dem.R")
 source("./code/JAGS/occupancymodel_jags_07052019.R")
 
 # Import Data
@@ -37,6 +37,6 @@ ModelDrakePlan <- drake_plan(
 MyPlan <- bind_rows(ImportDrakePlan, ModelDrakePlan)
 
 conf <- drake_config(MyPlan)
-make(MyPlan)
+make(MyPlan, force=T)
 loadd()
 vis_drake_graph(conf, targets_only = TRUE)

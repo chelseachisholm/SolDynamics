@@ -34,13 +34,14 @@ tann <- covs  %>% dplyr::select(PATCH, YEAR, taveSummer) %>%
 tann$y2009 <- tann[,2]
 tann <- as.matrix(tann[,c(2,6,3:5)])
 
-ddist <- covs  %>% dplyr::select(PATCH, YEAR, Geb) %>% #is Geb correct?
-  reshape2::dcast(PATCH ~ YEAR, value=Geb)
-ddist$y2009 <- c(rep(NA, 2741))
-ddist <- as.matrix(ddist[,c(2,6,3:5)])
+#ddist <- covs  %>% dplyr::select(PATCH, YEAR, Geb) %>% #is Geb correct?
+#  reshape2::dcast(PATCH ~ YEAR, value=Geb)
+#ddist$y2009 <- c(rep(NA, 2741))
+#ddist <- as.matrix(ddist[,c(2,6,3:5)])
 
 coords<- covs[3:4]
-pdist <- dist(coords)
+distmat <- as.matrix(dist(coords, diag=T, upper=T))
+dist_all = abs( distmat - t(distmat))
 
 # Standardize covariates
 # mean.elev <- mean(elev, na.rm = TRUE)
@@ -48,7 +49,7 @@ pdist <- dist(coords)
 # elev <- (elev-mean.elev) / sd.elev
 # elev[is.na(elev)] <- 0
 
-jags_data <- list(nsite = ncol(y), nyear = nrow(y), occ = occ, dem = dem, flo = flo, hei = hei, year=(c(1:3)-20) / 20, elev=elev, tann=tann, ddist=ddist, D=pdist)
+jags_data <- list(nsite = nrow(occ[1:50,]), nyear = ncol(occ[1:50,]), occ = occ[1:50,], dem = dem[1:50,], flo = flo[1:50,], hei = hei[1:50,], elev=elev[1:50,], tann=tann[1:50,], D=dist_all[1:50,1:50])
 
 return(jags_data)
 }
