@@ -16,6 +16,10 @@ Run_JAGSmodel <- function(x) {
   dem[,c(1,2,4)]<- dem[,3]
   flo<-x$flo
   
+ dem[is.na(dem)] <- median(dem, na.rm=T)
+ flo[is.na(flo)] <- median(flo, na.rm=T)
+ #flo[is.na(flo)] <- runif(length(is.na(flo)), 0,10)
+  
   #Create covariates
   elev<- zscale(x$elev)
   tann<- zscale(x$tann)
@@ -65,9 +69,9 @@ Run_JAGSmodel <- function(x) {
     logit(kappa[i,t]) = beta_f[1] + beta_f[2] * flo[i,t] 
 
     ##Relative abundance
-    #logit(lambda[i,t]) = beta_a[1] + beta_a[2] * dem[i,t]
+    logit(lambda[i,t]) = beta_a[1] + beta_a[2] * dem[i,t]
     
-    Ez[i,t+1] = kappa[i,t]*gamma[i,t]*(1-z[i,t]) + phi[i,t]*z[i,t]+0.00001
+    Ez[i,t+1] = kappa[i,t]*lambda[i,t]*gamma[i,t]*(1-z[i,t]) + phi[i,t]*z[i,t]+0.00001
 		#This won't normalize without the small additive constant. Why? 
     
 
@@ -81,8 +85,8 @@ Run_JAGSmodel <- function(x) {
 	  psi1 ~ dbeta(1,1)
 
     #priors for missing data in predictors
-    dem[i,t] ~ dnorm(0, 0.03)  
-    flo[i,t] ~ dnorm(0, 0.03) 
+    #dem[i,t] ~ dnorm(0, 0.03)  
+    #flo[i,t] ~ dnorm(0, 0.03) 
 
 
     #For predictors
@@ -130,7 +134,7 @@ Run_JAGSmodel <- function(x) {
   
   jagsModel = jags.model(file= "occ1.txt", data=Data, n.chains = 2, n.adapt= 1000)
   # Specify parameters for which posterior samples are saved
-  para.names = c("beta_phi","beta_f","beta_a","psi1","gamma0")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+  para.names = c("beta_phi","beta_f","beta_a","psi1","gamma0", "n_occ")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
   
   ### 4) Continue the MCMC runs with sampling
   Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
@@ -141,18 +145,26 @@ Run_JAGSmodel <- function(x) {
   plot(Samples,ask=T)
   
   ### 6) Compare to values in the underlying population model:
-  p_surv=antilogit(par_vals[5,1])
-  p_birth=antilogit(par_vals[3,1]+par_vals[4,1]*eg_scaled[,1])
-  p_comp = antlogit(par_vals[1,1]+par_vals[2,1]*inv_prob)
+  p_surv=antilogit(par_vals[5,1]+par_vals[6,1]*par_vals[7,1])
+  p_birth=antilogit(par_vals[3,1]+par_vals[4,1]*flo)
+  p_comp = antilogit(par_vals[1,1]+par_vals[2,1]*dem)
   
   #An approximation of competition from model: 
-  comp2 =1/(1+nr_act[,,2]*alphas[1,2])
+  #comp2 =1/(1+nr_act[,,2]*alphas[1,2])
   #Total expected competitive effect from occupancy model (prob_flowers*prob_comp): 
-  p_comp_tot = p_birth*comp2
+  p_comp_tot = p_birth*p_comp
   
   #Plot
   plot(p_comp_tot[,1])
-  points(comp2[,1],col="red")
+  points(p_comp[,1],col="red")
+  
+  #Forecast (modify this code!)
+  jags.data = list("y"=c(occ,NA,NA,NA),"t.max"=(t.max+3))
+  jags.params=c("sd.q","sd.r","predY","mu")
+  model.loc=("ss_model.txt")
+  mod_ss_forecast = jags(jags.data, parameters.to.save=jags.params,
+                         model.file=model.loc, n.chains = 3, n.burnin=5000, n.thin=1,
+                         n.iter=10000, DIC=TRUE)
   
   
   return(Samples)

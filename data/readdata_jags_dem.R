@@ -49,7 +49,7 @@ dist_all = abs( distmat - t(distmat))
 # elev <- (elev-mean.elev) / sd.elev
 # elev[is.na(elev)] <- 0
 
-jags_data <- list(nsite = nrow(occ[1:50,]), nyear = ncol(occ[1:50,]), occ = occ[1:50,], dem = dem[1:50,], flo = flo[1:50,], hei = hei[1:50,], elev=elev[1:50,], tann=tann[1:50,], D=dist_all[1:50,1:50])
+jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, dem = dem, flo = flo, hei = hei, elev=elev, tann=tann, D=dist_all)
 
 return(jags_data)
 }

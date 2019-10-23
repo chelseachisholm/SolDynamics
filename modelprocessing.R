@@ -3,6 +3,7 @@
 
 #load(occ,od_21122018.RData)
 
+### Convergence checks
 Samples<- JAGS_model
 # Plot the mcmc chain and the posterior sample for p
 plot(Samples)
@@ -16,6 +17,45 @@ summary(Samples)
 
 Samples.wd <- window(Samples, start = 1500 )
 plot(Samples.wd)
+
+### Plot 1: Colonisation/extinction over elevation
+#logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i,t] + beta_phi[3] * tann[i,t]
+p_surv=antilogit(par_vals[5,1]+ par_vals[6,1]*elev + par_vals[7,1]*tann)
+p_birth=antilogit(par_vals[3,1]+par_vals[4,1]*flo)
+p_comp = antilogit(par_vals[1,1]+par_vals[2,1]*dem)
+
+plot(elev, p_surv)
+plot(flo, p_birth)
+plot(dem, p_comp)
+#Plot predicted quantities
+
+par_vals = summary(Samples)$statistics
+
+X <- cbind(Samples[[1]], Samples[[2]])
+means <- apply(X,2,mean)
+upperCI <- apply(X,2,quantile,0.975)
+lowerCI <- apply(X,2,quantile,0.025)
+
+  for(i in 1:nsim){ ## Loop through simulations
+    surv[,i] <- plogis(Samples$beta.phi[i] + Samples$beta.phi1[i]*pred.trDAY + Samples$beta.phi2[i]*pred.trDAY^2)
+  }
+
+plot(NA, ylim=c(0,1), xlim=c(1, 102), axes=T, ylab="Detection probability", xlab="Julian Day (2016)", cex.lab=1.2)
+polygon(c(pred.DAY, pred.DAY[length(pred.DAY):1]), c(apply(newp, 1, quantile, probs=0.025), apply(newp, 1, quantile, probs=0.975)[length(pred.DAY):1]), col="grey80", border="grey80")
+lines(pred.DAY, apply(newp, 1, mean), col="blue", lwd=2.)
+#par(mfrow = c(2,2))
+nYears <- ncol(occ)
+for(i in 1:length(means)) {
+  plot(means[i],lwd=3,ylim=range(c(lowerCI[i],upperCI[i])),
+       type="n")
+  polygon(c(1:nYears),
+          c(upperCI[i],rev(lowerCI[i]),upperCI[i]),col="skyblue",lty=0)
+  lines(means[i],lwd=3)
+}
+
+detach.jags()
+
+
 
 #Plot predicted quantities over a range of years?
 turnout.mat <- rbind(Samples[[1]], Samples[[2]], Samples[[3]])
