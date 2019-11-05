@@ -48,7 +48,7 @@ pdist <- dist(coords)
 # elev <- (elev-mean.elev) / sd.elev
 # elev[is.na(elev)] <- 0
 
-jags_data <- list(nsite = ncol(y), nyear = nrow(y), occ = occ, dem = dem, flo = flo, hei = hei, year=(c(1:3)-20) / 20, elev=elev, tann=tann, ddist=ddist, D=pdist)
+jags_data <- list(nsite = ncol(occ), nyear = nrow(occ), occ = occ, dem = dem, flo = flo, hei = hei, year=(c(1:3)-20) / 20, elev=elev, tann=tann, ddist=ddist, D=pdist)
 
 return(jags_data)
 }

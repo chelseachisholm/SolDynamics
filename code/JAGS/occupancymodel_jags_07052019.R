@@ -3,7 +3,7 @@
 Run_JAGSmodel <- function(x) {
 
 # 2008, 2009(NAs), 2010, 2011, 2012
-Occ <- x$C
+Occ <- x$occ
 Occ.dat <- matrix(NA, nrow = nrow(Occ), ncol = 5)
 colnames(Occ.dat) <- c('2008','2009', '2010','2011','2012')
 Occ.dat[, c('2008','2009', '2010','2011','2012')] <- Occ

@@ -4,7 +4,7 @@
 #load(occ,od_21122018.RData)
 
 ### Convergence checks
-Samples<- JAGS_model
+Samples<- jagsModel
 # Plot the mcmc chain and the posterior sample for p
 plot(Samples)
 

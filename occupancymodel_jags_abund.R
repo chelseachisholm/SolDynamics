@@ -24,6 +24,24 @@ Run_JAGSmodel <- function(x) {
   elev<- zscale(x$elev)
   tann<- zscale(x$tann)
   
+  #Create list of neighbours within max distance (using 500 for now)
+  # Create a list of neighbours within max.dist for each patch
+  max.dist <- 3000
+  NB.list <- apply(x$D,1, function(x) which(x <= max.dist))
+  # Number of neighbours per patch
+  n.nb <- sapply(NB.list,length)
+  summary(n.nb)
+  
+  # Here I create a matrix NB.mat with the patch numbers (indices) of all neighbours
+  # for each patch
+  # and a re-formated distance matrix D.nb with the distances to these neighbours 
+  NB.mat <- matrix(NA, nrow = n.sites, ncol = max(n.nb))
+  D.nb <- NB.mat
+  for(i in 1:n.sites){
+    NB.mat[i,1:n.nb[i]] <- NB.list[[i]] 
+    D.nb[i,1:n.nb[i]] <- D[i,NB.list[[i]]]
+  }
+  
   logit <- function(x) {
     log(x/(1 - x))
   }
@@ -54,7 +72,7 @@ Run_JAGSmodel <- function(x) {
     
         for(t in 1:(t.max-1)){
           #  Model of local survival (1-extinction) at site i
-          logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i,t] + beta_phi[3] * tann[i,t]
+          logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i,t] #+ beta_phi[3] * tann[i,t]
     
     #Pairwise colonization probability based on dispersal kernel 
 		for(n in 1:nNeighbours){ 
@@ -93,7 +111,7 @@ Run_JAGSmodel <- function(x) {
     ###Survival
     beta_phi[1] ~ dnorm(0,0.3)
     beta_phi[2] ~ dnorm(0, 0.3)
-    beta_phi[3] ~ dnorm(0, 0.3)
+    #beta_phi[3] ~ dnorm(0, 0.3)
     
     ###Flowering
     beta_f[1] ~ dnorm(0,0.3)
@@ -113,6 +131,7 @@ Run_JAGSmodel <- function(x) {
     
     for(t in 1:(t.max-1)) {
     n_occ[t+1]=sum(z[1:n.sites,t+1])
+#also add range limit
     
 	}
 }
@@ -120,15 +139,17 @@ Run_JAGSmodel <- function(x) {
   
   sink()
   
+  #Put in truncated dispersal kernel, estimate range limit
+  
   ###############
   
   ### 2) Set up a list that contains all the necessary data
-  Data = list(y = occ, dist.all = dist.all,  n.sites = n.sites, elev = elev, tann = tann,
+  Data = list(y = occ, dist.all = dist.all,  n.sites = n.sites, elev = elev, #tann = tann,  
               nNeighbours=n.sites, t.max = t.max, flo = flo, dem = dem)
   
   # 3) Specify a function to generate inital values for the parameters
   init.pa = occ
-  inits_fn = function() list(psi1 = 0.1, beta_phi=runif(3,-3,3), beta_f=runif(2,-3, 3), 
+  inits_fn = function() list(psi1 = 0.1, beta_phi=runif(2,-3,3), beta_f=runif(2,-3, 3), 
                              beta_a=runif(2,-3, 3), gamma0 = 0.1, z = init.pa)
   #inits_fn = function() list(psi1 = 0.1, beta_phi=runif(1,-3,3), beta_f=runif(3,-3,3), z = init.pa)
   
@@ -145,9 +166,15 @@ Run_JAGSmodel <- function(x) {
   plot(Samples,ask=T)
   
   ### 6) Compare to values in the underlying population model:
-  p_surv=antilogit(par_vals[5,1]+par_vals[6,1]*par_vals[7,1])
+  p_surv=antilogit(par_vals[5,1]+par_vals[6,1]*elev)
   p_birth=antilogit(par_vals[3,1]+par_vals[4,1]*flo)
   p_comp = antilogit(par_vals[1,1]+par_vals[2,1]*dem)
+  
+  plot(elev, p_surv)
+  plot(p_birth, elev)
+  plot(p_comp, elev)
+  
+  
   
   #An approximation of competition from model: 
   #comp2 =1/(1+nr_act[,,2]*alphas[1,2])
