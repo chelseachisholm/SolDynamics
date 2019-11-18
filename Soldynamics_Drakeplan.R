@@ -19,22 +19,22 @@ pn <- . %>% print(n = Inf)
 
 # source scripts
 source("./data/readdata_jags_dem.R")
-source("./code/JAGS/occupancymodel_jags_07052019.R")
+#source("./code/JAGS/occupancymodel_jags_07052019.R")
 
 # Import Data
 ImportDrakePlan <- drake_plan(
   jags_data = Importsoldat()
 )
 
-ModelDrakePlan <- drake_plan(
-  jags_model = Run_JAGSmodel(jags_data)
-)
+# ModelDrakePlan <- drake_plan(
+#   jags_model = Run_JAGSmodel(jags_data)
+# )
 
 #AnalyzeDrakePlan <- drake_plan(
 #  JAGS_output = Run_JAGSmodel()
 #)
 
-MyPlan <- bind_rows(ImportDrakePlan, ModelDrakePlan)
+MyPlan <- bind_rows(ImportDrakePlan)
 
 conf <- drake_config(MyPlan)
 make(MyPlan, force=T)

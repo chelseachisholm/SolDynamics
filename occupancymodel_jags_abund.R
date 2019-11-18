@@ -26,29 +26,29 @@ Run_JAGSmodel <- function(x) {
   
   #Create list of neighbours within max distance (using 500 for now)
   # Create a list of neighbours within max.dist for each patch
-  max.dist <- 3000
-  NB.list <- apply(x$D,1, function(x) which(x <= max.dist))
-  # Number of neighbours per patch
-  n.nb <- sapply(NB.list,length)
-  summary(n.nb)
-  
-  # Here I create a matrix NB.mat with the patch numbers (indices) of all neighbours
-  # for each patch
-  # and a re-formated distance matrix D.nb with the distances to these neighbours 
-  NB.mat <- matrix(NA, nrow = n.sites, ncol = max(n.nb))
-  D.nb <- NB.mat
-  for(i in 1:n.sites){
-    NB.mat[i,1:n.nb[i]] <- NB.list[[i]] 
-    D.nb[i,1:n.nb[i]] <- D[i,NB.list[[i]]]
-  }
-  
+  # max.dist <- 30000
+  # NB.list <- apply(x$D,1, function(x) which(x <= max.dist))
+  # # Number of neighbours per patch
+  # n.nb <- sapply(NB.list,length)
+  # summary(n.nb)
+  # 
+  # # Here I create a matrix NB.mat with the patch numbers (indices) of all neighbours
+  # # for each patch
+  # # and a re-formated distance matrix D.nb with the distances to these neighbours 
+  # NB.mat <- matrix(NA, nrow = n.sites, ncol = max(n.nb))
+  # D.nb <- NB.mat
+  # for(i in 1:n.sites){
+  #   NB.mat[i,1:n.nb[i]] <- NB.list[[i]] 
+  #   D.nb[i,1:n.nb[i]] <- D[i,NB.list[[i]]]
+  # }
+  # 
   logit <- function(x) {
     log(x/(1 - x))
   }
   
   ###########################################################
   
-  # spatial model
+  # spatial model (old)
   
   # Save a description of the model in JAGS syntax to working directory
   sink("occ1.txt")
@@ -78,7 +78,7 @@ Run_JAGSmodel <- function(x) {
 		for(n in 1:nNeighbours){ 
     #Exponential kernel, probability of dispersal to a site based on distance
       gammaDistPairs[i,n,t] = gamma0 * exp(-gamma0*dist.all[i,n]) * z[n,t] 
-    }
+    }#add in repro ability for other patches
 
     # Colonization prob
     gamma[i,t] = 1 - prod(1-gammaDistPairs[i,,t])
@@ -141,6 +141,8 @@ Run_JAGSmodel <- function(x) {
   
   #Put in truncated dispersal kernel, estimate range limit
   
+  
+  
   ###############
   
   ### 2) Set up a list that contains all the necessary data
@@ -152,7 +154,7 @@ Run_JAGSmodel <- function(x) {
   inits_fn = function() list(psi1 = 0.1, beta_phi=runif(2,-3,3), beta_f=runif(2,-3, 3), 
                              beta_a=runif(2,-3, 3), gamma0 = 0.1, z = init.pa)
   #inits_fn = function() list(psi1 = 0.1, beta_phi=runif(1,-3,3), beta_f=runif(3,-3,3), z = init.pa)
-  
+  load.module('glm')
   jagsModel = jags.model(file= "occ1.txt", data=Data, n.chains = 2, n.adapt= 1000)
   # Specify parameters for which posterior samples are saved
   para.names = c("beta_phi","beta_f","beta_a","psi1","gamma0", "n_occ")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
