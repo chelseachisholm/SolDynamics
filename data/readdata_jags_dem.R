@@ -49,10 +49,12 @@ dist_all = abs( distmat - t(distmat))
 # elev <- (elev-mean.elev) / sd.elev
 # elev[is.na(elev)] <- 0
 
-## Germ data for sensitivity
+## Germ data for sensitivity--< BUT NO HERB DATA< FIX THIS!
 germ <- read.table('./data/Germdatanalysis.txt', head=T)
 
 jags_data <- list(nsite = nrow(occ[1:100,]), nyear = ncol(occ[1:100,]), occ = occ[1:100,], dem = dem[1:100,], flo = flo[1:100,], elev=elev[1:100,], tann=tann[1:100,], D=dist_all[1:100,])
+dem_data <- dat
+germ_data <- germ
 
 return(jags_data)
 }

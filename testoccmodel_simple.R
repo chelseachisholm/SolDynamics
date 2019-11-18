@@ -508,7 +508,7 @@ median(p_values)
 #### MODEL 6 ####
 
 sink("occ1.txt") 
-#Includes correct model (full model) with missing data in dem and flo, but no dispersal kernel
+#Includes correct model (full model) with missing data in dem and flo, but no dispersal kernel, plus site and time random effect!
 
 cat(
   "

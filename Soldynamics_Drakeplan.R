@@ -6,10 +6,7 @@ rm(list=ls())
 # Load library
 library("drake")
 library("tidyverse")
-library("readxl")
-library("lubridate")
-library("e1071")
-library("rjags")
+library("runjags")
 
 # drake configurations
 pkgconfig::set_config("drake::strings_in_dots" = "literals")
@@ -34,9 +31,9 @@ ImportDrakePlan <- drake_plan(
 #  JAGS_output = Run_JAGSmodel()
 #)
 
-MyPlan <- bind_rows(ImportDrakePlan)
+MyPlan <- ImportDrakePlan
 
 conf <- drake_config(MyPlan)
-make(MyPlan, force=T)
+make(MyPlan)
 loadd()
 vis_drake_graph(conf, targets_only = TRUE)
