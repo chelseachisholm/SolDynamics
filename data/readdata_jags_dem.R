@@ -52,9 +52,44 @@ dist_all = abs( distmat - t(distmat))
 ## Germ data for sensitivity--< BUT NO HERB DATA< FIX THIS!
 germ <- read.table('./data/Germdatanalysis.txt', head=T)
 
+## Herb Chronology data
+chrono <- read.csv('./data/Means_of_age.csv', head=T)
+chrono <- chrono[1:48, 1:5]
+dat <- data.frame(patch=chrono$Name, Elevation=chrono$Elevation, age=chrono$Oldest, y2008=NA, y2009=NA, y2010=NA, y2011=NA, y2012=1) 
+dat <- dat %>% mutate(patch=toupper(patch))
+dat[which(dat$age == 4), 4:7] <- 1
+dat[which(dat$age == 3), 5:7] <- 1
+dat[which(dat$age == 2), 6:7] <- 1
+
+#Now match patches to original row locations and add in to z. 
+cov$patch <- as.character(cov$Name)
+cov$Elevation <- cov$Altitude
+rar <-cov %>% reshape2::dcast(PATCH + patch + Elevation~YEAR, value.var='occurrence') %>%
+  mutate(patch=toupper(patch))#Issue is named plots are named in patch, but then there is an 'absent' category.
+herb<- full_join(rar, dat, by=c('Elevation')) #missing 20 odd patches, not name so have to do it directly... ugh
+herb<-herb[,10:14]
+#check it worked
+colSums(dat[,4:8], na.rm=T)
+colSums(herb, na.rm=T) ###YAS QUEEN IT'S THE SAME. No it ain't. For now cut off extras and make sure there are no 1s where there shouldn't be...
+herb<- herb[1:2741,]
+herb[which(rowSums(occ, na.rm=T)==0),]<-NA
+herb[is.na(herb)]<-0
+
+z<-occ
+
+fu <- z+herb
+fu[fu==0]<-NA
+fu[fu==2]<-1
+z<-fu
+
+#Collate data
 jags_data <- list(nsite = nrow(occ[1:100,]), nyear = ncol(occ[1:100,]), occ = occ[1:100,], dem = dem[1:100,], flo = flo[1:100,], elev=elev[1:100,], tann=tann[1:100,], D=dist_all[1:100,])
 dem_data <- dat
 germ_data <- germ
+
+
+
+
 
 return(jags_data)
 }

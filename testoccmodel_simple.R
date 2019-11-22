@@ -90,7 +90,7 @@ plot(Samples,ask=T)
 
 
 #### MODEL 2 ####
-# This model provides z as data with 1s fixed (now added randomly, need to get herb chrono data from gregoire). Then adds a p for detection probability, which I estimate. Is about 0.75!
+# Detection probability!
 sink("occ1.txt") 
 
 cat(
@@ -156,9 +156,12 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-z<-occ
-z[z==0]<-NA
-z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
+#Use z from readdata_jags_dem.R, below is just a sample I tested
+#For simulated data
+# z<-occ
+# z[z==0]<-NA
+# z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
+
 
 Data_simple <- list(n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z)
 
@@ -195,7 +198,7 @@ cat(
   # Observation model
   for(t in 1:t.max){
   for(i in 1:n.sites){
-  muY[i,t] <- (z[i,t]*p) + (1-z[i,t])*pn
+  muY[i,t] <- (z[i,t]*p) + (1-z[i,t])*pn #false negative p and false positive pn (stupid name)
   y[i,t] ~ dbern(muY[i,t])
   }
   }
@@ -251,9 +254,7 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-z<-occ
-z[z==0]<-NA
-z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
+#Use z from model 2 or readdata_jags_dem.R
 
 Data_simple <- list(n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z)
 
@@ -355,9 +356,6 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-z<-occ
-z[z==0]<-NA
-z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
 
 #add some missing data
 newelev<- elev
@@ -477,9 +475,6 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-z<-occ
-z[z==0]<-NA
-z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
 
 Data_simple <- list(n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, elev=elev[,1])
 
@@ -524,7 +519,7 @@ cat(
   }
   
   for(t in 1:(t.max-1)){
-  trand[t] ~ dnorm... 0, taut} #if a time point is bad, it's bad for all sites so keep additive
+  trand[t] ~ dnorm(0, taut) } #if a time point is bad, it's bad for all sites so keep additive
   
   # State (process) model
   # 1st year 
@@ -563,6 +558,10 @@ cat(
   ##For year 1
   psi1 ~ dbeta(1,1)
   p ~ dbeta(1, 1)
+
+  #For random effects of year and time
+  taut ~ dgamma(0.1,0.1)
+  tau ~ dgamma(0.1,0.1)
   
   #For missing data in flowering and dem data
   mu_flo ~ dgamma(10, 10) #won't be negative! (maybe use a total vs. average <- poisson for the respoonse)
@@ -603,9 +602,6 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-z<-occ
-z[z==0]<-NA
-z[sample(which(rowSums(z, na.rm=T)>=1), 50),]<-1
 
 Data_simple <- list(n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, elev=elev[,1])
 
@@ -616,7 +612,7 @@ inits_fn = function() list(psi1 = 0.1, mu_dem = 10, tau_dem= 10^-3, mu_flo = 10,
 load.module('glm')
 jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 2, n.adapt= 1000)
 # Specify parameters for which posterior samples are saved
-para.names = c("n_occ", 'p')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+para.names = c("n_occ", 'p', 'tau', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
 
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
