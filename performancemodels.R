@@ -119,6 +119,28 @@ y<- intercept + coef*X
 
 plot(Y[,2] ~ X)
 
+
+#### Density (over time) JAGS template ####
+center_apply <- function(y) y - mean(y)
+dat <- data.frame(dem_data[,c('Density08', 'Density10', 'Density12')])
+elev<-center_apply(Data_simple$elev)
+dat$elev <- elev
+dat$patch <- c(1:2741)
+dat <- dat %>% gather(year, dem, -elev, -patch)
+model <- template.jags(dem ~ elev + (1 | year), data=dat, family='gaussian')
+results <- run.jags("JAGSmodel.txt", method="int")
+results
+
+# Having #residual# and #fitted# in the JAGS specification allows for:
+model.residuals <- residuals(results, output='mean')
+model.fitted <- fitted(results, output='mean')
+plot(model.fitted, data$dem)
+plot(model.fitted, model.residuals); abline(h=0)
+
+plot(residuals(lm.D9), residuals(JAGS.D9, output='mean'))
+
+
+
 #### EXTRA CODE ####
 
 #Including time as a random effect, but number of observations < 5 so NOT A GOOD IDEA DUE TO MASSIVE SHRINKAGE!!! 

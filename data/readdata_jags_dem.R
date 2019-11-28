@@ -39,7 +39,7 @@ tann <- as.matrix(tann[,c(2,6,3:5)])
 #ddist$y2009 <- c(rep(NA, 2741))
 #ddist <- as.matrix(ddist[,c(2,6,3:5)])
 
-coords<- covs[3:4]
+coords<- covs[1:2741, 3:4]
 distmat <- as.matrix(dist(coords, diag=T, upper=T))
 dist_all = abs( distmat - t(distmat))
 
@@ -84,7 +84,7 @@ z<-fu
 
 #Collate data
 jags_data <- list(nsite = nrow(occ[1:100,]), nyear = ncol(occ[1:100,]), occ = occ[1:100,], dem = dem[1:100,], flo = flo[1:100,], elev=elev[1:100,], tann=tann[1:100,], D=dist_all[1:100,])
-dem_data <- dat
+dem_data <- dem
 germ_data <- germ
 
 
