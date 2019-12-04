@@ -8,7 +8,7 @@ head(dem_data)
 #### Density over time ####
 N<-nrow(dem_data)
 center_apply <- function(y) y - mean(y)
-X<-center_apply(elev[,1])
+X<-center_apply(dem_data$Altitude)
 Y<-as.matrix(dem_data[,c('Density08', 'Density10', 'Density12')])
 dat <- list(N=N, X=X, Y=Y[,1])
   
@@ -36,89 +36,47 @@ summary(results)
 
 
 Y<-as.matrix(dem_data[,c('Density08', 'Density10', 'Density12')])
-dat <- list(N=N, X=X, Y=Y)
+dat <- list(N=N, X=X, Y=Y[,1])
 
+
+plot(results)
+
+results			
 
 cat('model {
     intercept ~ dnorm(0, 1/10^6) #remember sd is precision
     coef ~ dnorm(0, 1/10^6)
-    tau ~ dgamma(0.001,0.001)
-    ttau ~ dgamma(0.001,0.001)
+    tau ~ dgamma(10,10)
 
-    for(t in 1:3){
-      trand[t] ~ dnorm(0, ttau)
-    }
+    #ntau~ dgamma(10,10)
+    #ttau ~ dgamma(10,10)
+
+    #for(t in 1:3){
+    #trand[t] ~ dnorm(0, ttau)
+    #}
     
     for(i in 1:N){
+    #rand[i] ~ dnorm(0, ntau)
         for(t in 1:3) {
           Y[i,t] ~ dnorm(mu[i,t], tau)
-          log(mu[i,t]) <- intercept + coef*X[i]  + trand[t]
-          Y_rep[i,t] ~ dnorm(mu[i,t], tau)
+          log(mu[i,t]) <- intercept + coef*X[i] #+ rand[i] #+ trand[t]
         }
     }
-
     #data# Y, X, N
-    #monitor# intercept, coef, tau, ttau, Y_rep
+    #monitor# intercept, coef, tau
     }', file='modelfile.txt')
 
 
-results <- run.jags(model='modelfile.txt', data = dat, burnin=2000, sample=2000, thin=2, n.chains=2)
+results <- run.jags(model='modelfile.txt', data = dat, burnin=2000, sample=20000, n.chains=2)
 
 plot(results)
 
-library(bayesplot)
-library(Bayesfactor)
-posterior(results) %>% 
-  gf_point(intercept ~ coef, color = ~ chain, alpha = 0.2, size = 0.4) %>%
-  gf_density2d(alpha = 0.5)
-
-#Extract samples
 coef <- combine.mcmc(results, var='coef')
 intercept <- combine.mcmc(results, var='intercept')
 
-#Prepare samples for plotting
-df_obs <- data.frame(k1=Y[,1], k2=Y[,2], k3=Y[,3], elev=X)
+y<- exp(intercept + coef*X)
 
-df_pred <- data.frame(k1 = Y_rep[,1],
-                      k2 = Y_rep[,2],
-                      k3 = Y_rep[,3],
-                      elev=X)
-
-m <- melt(table(df_pred), value.name = "dem")
-
-#Then plot
-p1 <- ggplot(m, aes(x = elev, y = k3)) +
-  geom_point(shape=19,
-             size = m[,'dem']/5,
-             alpha=0.8,
-             colour = "grey") +
-  geom_point(data = df_obs, aes(x = elev,
-                                y = k3),
-             size = 6,
-             shape = 19,
-             colour = "red") +
-  xlab("Success count 1") +
-  ylab("Success count 2") +
-  theme_bw(base_size = 12, base_family = "Helvetica")
-
-#Or other tutorial plot
-plotModelOutput = function(jagsmodel, Y) {
-  # attach the model
-  attach.jags(results)
-  x = seq(1,length(Y))
-  summaryPredictions = cbind(apply(predY,2,quantile,0.025), apply(predY,2,mean),
-                             apply(predY,2,quantile,0.975))
-  plot(Y, col="white",ylim=c(min(c(Y,summaryPredictions)),max(c(Y,summaryPredictions))),
-       xlab="",ylab="95% CIs of predictions and data",main=paste("JAGS results:",
-                                                                 jagsmodel$model.file))
-  polygon(c(x,rev(x)), c(summaryPredictions[,1], rev(summaryPredictions[,3])),
-          col="grey70",border=NA)
-  lines(summaryPredictions[,2])
-  points(Y)
-}
-and we can use the function to plot the predicted posterior mean with 95%
-CIs, as well as the raw data. For example, try
-plotModelOutput(mod_lmcor_intercept, Wind)
+plot(Y[,3] ~ X)
 
 #### FLOWERS (over time?) ####
 Y<-as.matrix(dem_data[,c('Flower10', 'Flower12')])
@@ -156,30 +114,37 @@ results
 
 coef <- combine.mcmc(results, var='coef')
 intercept <- combine.mcmc(results, var='intercept')
+coda::HPDinterval(coef)
 
-y<- intercept + coef*X
+# Based on the full posteriors:
+expectation <- intercept + coef * mean(X)
+median(expectation)
+coda::HPDinterval(expectation)
 
-plot(Y[,2] ~ X)
 
+library(tidybayes)
+library(modelr)
+plot(Y[,1] ~ X)
+lambda<-median(intercept)+median(coef)*X
+lines(X, lambda)
+library("ggplot2")
+eq<- function(x) {median(intercept) + median(coef)*x}
+dfpred <- data.frame(x=c(-300,500))
+ggplot(dfpred, aes(x=x)) + stat_function(fun=eq, geom="line") + xlab("x") + ylab("y") +
+  geom_point(data = as.data.frame(dat), aes(x=X, y=Y[,2]),size = 2) + 
+  scale_x_continuous(c(-300,500)) 
 
-#### Density (over time) JAGS template ####
-center_apply <- function(y) y - mean(y)
-dat <- data.frame(dem_data[,c('Density08', 'Density10', 'Density12')])
-elev<-center_apply(Data_simple$elev)
-dat$elev <- elev
-dat$patch <- c(1:2741)
-dat <- dat %>% gather(year, dem, -elev, -patch)
-model <- template.jags(dem ~ elev + (1 | year), data=dat, family='gaussian')
-results <- run.jags("JAGSmodel.txt", method="int", sample = 5000, modules = 'glm')
-results
+rar <- as.data.frame(combine.mcmc(results)) %>% gather(key='parameter')
+rar %>%
+  ggplot(aes(x = value, y=as.factor(parameter))) +
+  tidybayes::stat_intervalh()
 
-plot(results)
-
-# Having #residual# and #fitted# in the JAGS specification allows for:
-model.residuals <- residuals(results, output='mean')
-model.fitted <- fitted(results, output='mean')
-plot(model.fitted, data$dem)
-plot(model.fitted, model.residuals); abline(h=0)
+rar %>%
+  ggplot(dfpred, aes(x = x)) +
+  stat_function(fun=eq, geom="line") + xlab("x") + ylab("y") +
+  stat_lineribbon(fun=eq, .width = .95, color = "#08519C") +
+  geom_point(data = rar, size = 2) +
+  scale_fill_brewer()
 
 #### EXTRA CODE ####
 
