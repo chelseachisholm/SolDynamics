@@ -65,7 +65,7 @@ dat[which(dat$age == 2), 6:7] <- 1
 cov$patch <- as.character(cov$Name)
 cov$Elevation <- cov$Altitude
 rar <-cov %>% reshape2::dcast(PATCH + patch + Elevation~YEAR, value.var='occurrence') %>%
-  mutate(patch=toupper(patch))#Issue is named plots are named in patch, but then there is an 'absent' category.
+  mutate(patch=toupper(patch)) #Issue is named plots are named in patch, but then there is an 'absent' category.
 herb<- full_join(rar, dat, by=c('Elevation')) #missing 20 odd patches, not name so have to do it directly... ugh
 herb<-herb[,10:14]
 #check it worked

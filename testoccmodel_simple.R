@@ -702,7 +702,6 @@ cat(
   ## Pr(z=1|z=1) = 1 - Pr(extinction)*Pr(not colonized) = 1 - ((1-phi)*(1-gamma))
   Ez[i,t+1] = (1 - z[i,t])*gamma[i,t] + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] 
   #For year 2, colonization if it was not occupied and survival if it was alive the previous year 
-  #This won't normalize without the small additive constant. Why? 
   
   #new occupancy probability  
   z[i,t+1] ~ dbern(Ez[i,t+1])
@@ -751,7 +750,7 @@ inits_fn = function() list(psi1 = 0.1, beta_phi=runif(1,-3,3), beta_f=runif(3,-3
 load.module('glm')
 jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 2, n.adapt= 1000)
 # Specify parameters for which posterior samples are saved
-para.names = c("beta_phi","gamma0", "n_occ")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+para.names = c("p", "beta_phi","gamma0", "n_occ")  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
 
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
@@ -986,7 +985,7 @@ cat(
   dem[i,t] ~ dnorm(mu_dem, tau_dem) 
   
   #  Model of local survival (1-extinction) at site i
-  logit(phi[i,t]) <- beta_phi1 + beta_phi2*elev[i] + rand[i] + trand[t] #if you wanted to simulate for a new time point, would be adding some noise to survival probability. You can say time effect is 0 for new time points to assume it's average.But makes more sense to just let JAGs do it, gives more uncertainty in following year but that makes sense. Makes sense for sites too.
+  logit(phi[i,t]) <- beta_phi1 + beta_phi2*elev[i] + trand[t] #if you wanted to simulate for a new time point, would be adding some noise to survival probability. You can say time effect is 0 for new time points to assume it's average.But makes more sense to just let JAGs do it, gives more uncertainty in following year but that makes sense. Makes sense for sites too.
   
   
   # Flowering:
@@ -998,15 +997,21 @@ cat(
   
   #  Pairwise 'source strength' calc and colonisation probability
   for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
-  gammaDistPairs[i,n,t] <- 1-gamma0*exp(-D.nb[i,n]/(2*sigma^2))*z[NB.mat[i,n],t] #This indexes the neighbour in question (NB.mat[i,n])
+  gammaDistPairs[i,n,t] <- 1-gamma0*exp(-D.nb[i,n]^2/(2*sigma^2))*z[NB.mat[i,n],t] 
+  #This indexes the neighbour in question (NB.mat[i,n])
+  #sigma is the distance decay scale parameter
+  #gamma0 is baseline colonisation probability for coincident sites
   }
   
   # Colonization prob
-  gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t])
+  gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
+  #Could generate this at every site to look at connectivity at the landscape level, or sum to get a landscape scale connectivity measure
   
   
   ## Pr(z=1|z=1) = 1 - Pr(extinction)*Pr(not colonized) = 1 - ((1-phi)*(1-gamma))
-  Ez[i,t+1] = (1 - z[i,t])*gamma[i,t] + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] 
+  Ez[i,t+1] = gamma[i,t]*(1 - z[i,t]) + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] 
+  #P(occ) = P(colonized if not there) + 1-(P(extinction)*(P(not colonized and there, i.e. survived from last year)))
+  #P(occ) = P(colonisation if not there) + P(survival if occupied already)
   #For year 2, colonization if it was not occupied and survival if it was alive the previous year 
   
   #new occupancy probability  
@@ -1074,7 +1079,7 @@ inits_fn = function() list(sigma=10, gamma0=0.1, psi1 = 0.1, mu_dem = 1, tau_dem
 load.module('glm')
 jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 2, n.adapt= 1000)
 # Specify parameters for which posterior samples are saved
-para.names = c('n_occ', 'p', 'gamma0', 'sigma', 'beta_phi1', 'beta_phi2', 'beta_a[1]', 'beta_a[2]', 'beta_f[1]', 'beta_f[2]', 'tau', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+para.names = c('n_occ', 'p', 'gamma0', 'sigma', 'beta_phi1', 'beta_phi2', 'beta_a[1]', 'beta_a[2]', 'beta_f[1]', 'beta_f[2]', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
 
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
@@ -1082,6 +1087,149 @@ Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
 par_vals = summary(Samples)$statistics
 summary(Samples)
 plot(Samples,ask=T)
+
+
+
+
+#### MODEL 10 ####
+
+#Model 9 but removes useless flower and abundance (where to put these??)
+
+#Create list of neighbours within max distance (using 500 for now)
+#Create a list of neighbours within max.dist for each patch
+max.dist <- 200
+NB.list <- apply(distmat,1, function(x) which(x <= max.dist))
+# Number of neighbours per patch
+n.nb <- sapply(NB.list,length)
+summary(n.nb)
+# 
+# Here I create a matrix NB.mat with the patch numbers (indices) of all neighbours
+# for each patch
+# and a re-formated distance matrix D.nb with the distances to these neighbours
+NB.mat <- matrix(NA, nrow = nrow(occ), ncol = max(n.nb))
+D.nb <- NB.mat
+for(i in 1:nrow(occ)){
+  NB.mat[i,1:n.nb[i]] <- NB.list[[i]]
+  D.nb[i,1:n.nb[i]] <- distmat[i,NB.list[[i]]]
+}
+
+
+sink("occ1.txt") 
+
+cat(
+  "
+  
+  model{
+  
+  # Observation model
+  for(t in 1:t.max){
+  for(i in 1:n.sites){
+  muY[i,t] <- z[i,t]*p
+  y[i,t] ~ dbern(muY[i,t])
+  }
+  }
+  
+  for(t in 1:(t.max-1)){
+  trand[t] ~ dnorm(0, taut) } #if a time point is bad, it's bad for all sites so keep additive
+  
+  # State (process) model
+  # 1st year 
+  for(i in 1:n.sites){
+  z[i,1] ~ dbern(psi1)
+  
+  for(t in 1:(t.max-1)){
+  
+  #Model of missing data for dem and flo (in t loop because needs to be defined multiple times
+  flo[i,t] ~ dnorm(mu_flo, tau_flo) #dpois if total, may likely need a negative binomial (search help for dnbin expects number of failures before successes, need to convert it). Or if you have enough observations, you could assume this is normal and the variances are estimated independently (vs. the poisson)
+  dem[i,t] ~ dnorm(mu_dem, tau_dem) 
+
+  #  Model of local survival (1-extinction) at site i
+  logit(phi[i,t]) <- beta_phi1 + beta_phi2*elev[i] + trand[t] #if you wanted to simulate for a new time point, would be adding some noise to survival probability. You can say time effect is 0 for new time points to assume it's average.But makes more sense to just let JAGs do it, gives more uncertainty in following year but that makes sense. Makes sense for sites too.
+  
+  #  Pairwise 'source strength' calc and colonisation probability
+  for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
+  gammaDistPairs[i,n,t] <- 1-gamma0*exp(-(D.nb[i,n]^2)/(2*sigma^2))*z[NB.mat[i,n],t] 
+  #This indexes the neighbour in question (NB.mat[i,n])
+  #sigma is the distance decay scale parameter
+  #gamma0 is baseline colonisation probability for coincident sites
+  }
+  
+  # Colonization prob
+  gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
+  #Could generate this at every site to look at connectivity at the landscape level, or sum to get a landscape scale connectivity measure
+  
+  
+  ## Pr(z=1|z=1) = 1 - Pr(extinction)*Pr(not colonized) = 1 - ((1-phi)*(1-gamma))
+  Ez[i,t+1] = gamma[i,t]*(1 - z[i,t]) + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] 
+  #P(occ) = P(colonized if not there) + 1-(P(extinction)*(P(not colonized and there, i.e. survived from last year)))
+  #P(occ) = P(colonisation if not there) + P(survival if occupied already)
+  #For year 2, colonization if it was not occupied and survival if it was alive the previous year 
+  
+  #new occupancy probability  
+  z[i,t+1] ~ dbern(Ez[i,t+1])
+  }
+  }
+  
+  
+  # Prior distributions
+  ##For year 1
+  psi1 ~ dbeta(1,1)
+  p ~ dbeta(1, 1)
+  
+  #For random effects of year 
+  taut ~ dgamma(0.1,0.1)
+  
+  #conugate for mean paramater for normal dist is dnorm, for the precision its dgamma.
+  #For predictors
+  ##Survival
+  beta_phi1 ~ dnorm(0, 1/1000)
+  beta_phi2 ~ dnorm(0,1/1000)
+  
+  ##Colonization
+  gamma0 ~ dbeta(1,1)
+  sigma ~ dgamma(1, 0.1)
+  
+  ###Derived quantities block
+  psi[1]=psi1
+  n_occ[1]=sum(z[1:n.sites,1])
+
+  for(t in 1:(t.max-1)) {
+  n_occ[t+1]=sum(z[1:n.sites,t+1])
+  }
+  
+  # for (t in 1:(t.max-1)) {
+  # n_gamma[t+1] = sum(gamma[1:n.sites,t+1])
+  # }
+
+  
+  
+  }
+  ",fill = TRUE, file="occ1.txt")
+
+sink()
+#you could ask just for the mean, is in rjags! Look at means only, not posterior (example in WAIC folder in Day 3)
+#Put in truncated dispersal kernel, estimate range limit
+
+
+### 2) Set up a list that contains all the necessary data
+
+Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, elev=elev[,1])
+
+# 3) Specify a function to generate inital values for the parameters
+#init.pa = occ
+inits_fn = function() list(sigma=2, gamma0=0.1, psi1 = 0.1, beta_phi1=1, beta_phi2=1, z = z, p = 0.9)
+#inits_fn = function() list(psi1 = 0.1, beta_phi=runif(1,-3,3), beta_f=runif(3,-3,3), z = init.pa)
+load.module('glm')
+jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 3, n.adapt= 2000)
+# Specify parameters for which posterior samples are saved
+para.names = c('n_occ', 'p', 'gamma0', 'sigma', 'beta_phi1', 'beta_phi2', 'gamma', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+
+### 4) Continue the MCMC runs with sampling
+Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 2000)
+
+par_vals = summary(Samples)$statistics
+summary(Samples)
+#plot(Samples,ask=T)
 
 
 
