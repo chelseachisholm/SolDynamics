@@ -34,6 +34,16 @@ tann <- covs  %>% dplyr::select(PATCH, YEAR, taveSummer) %>%
 tann$y2009 <- tann[,2]
 tann <- as.matrix(tann[,c(2,6,3:5)])
 
+gdd <- covs  %>% dplyr::select(PATCH, YEAR, ddeg000_h) %>%
+  reshape2::dcast(PATCH ~ YEAR, value=taveSummer)
+gdd$y2009 <- gdd[,2]
+gdd <- as.matrix(gdd[,c(2:6)])
+
+fdd <- covs  %>% dplyr::select(PATCH, YEAR, sfroyy_100) %>%
+  reshape2::dcast(PATCH ~ YEAR, value=taveSummer)
+fdd$y2009 <- fdd[,2]
+fdd <- as.matrix(fdd[,c(2:6)])
+
 #ddist <- covs  %>% dplyr::select(PATCH, YEAR, Geb) %>% #is Geb correct?
 #  reshape2::dcast(PATCH ~ YEAR, value=Geb)
 #ddist$y2009 <- c(rep(NA, 2741))
