@@ -52,7 +52,7 @@ cat(
   dem[i,t] ~ dnorm(mu_dem, tau_dem) 
   
   # Model of relative abundance
-  logit(lambda[i,t]) = beta_a[1] + beta_a[2]*dem[i,t] + beta_a[3]*gdd[i]
+  logit(lambda[i,t]) = beta_a[1] + beta_a[2]*dem[i,t] 
   
   # Model of flowering
   logit(kappa[i,t]) = beta_f[1] + beta_f[2]*flo[i,t] 
@@ -106,7 +106,6 @@ cat(
   ##Relative abundance
   beta_a[1] ~ dnorm(0,1/1000)
   beta_a[2] ~ dnorm(0,1/1000)
-  beta_a[3] ~ dnorm(0,1/1000)
   
   ##Colonization
   gamma0 ~ dbeta(1,1)
@@ -135,13 +134,13 @@ Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(oc
 
 
 # 3) Specify a function to generate inital values for the parameters
-inits_fn = function() list(gamma0=0.1, psi1 = 0.1, mu_dem = 1, tau_dem= 0.01, mu_flo = 1, tau_flo= 0.01, beta_phi=runif(3,-3,3), beta_a=runif(3, -3,3), beta_f=runif(2,-3,3), z = z, p = 0.9)
+inits_fn = function() list(gamma0=0.1, psi1 = 0.1, mu_dem = 1, tau_dem= 0.01, mu_flo = 1, tau_flo= 0.01, beta_phi=runif(3,-3,3), beta_a=runif(2, -3,3), beta_f=runif(2,-3,3), z = z, p = 0.9)
 
 load.module('glm')
 jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 1, n.adapt= 1000)
 
 # Specify parameters for which posterior samples are saved
-para.names = c('n_occ', 'p', 'gamma0', 'beta_phi[1]', 'beta_phi[2]', 'beta_phi[3]', 'beta_a[1]', 'beta_a[2]', 'beta_a[3]', 'beta_f[1]', 'beta_f[2]', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+para.names = c('n_occ', 'p', 'gamma0', 'beta_phi[1]', 'beta_phi[2]', 'beta_phi[3]', 'beta_a[1]', 'beta_a[2]', 'beta_f[1]', 'beta_f[2]', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
 
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)
