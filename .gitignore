@@ -23,10 +23,12 @@ vignettes/*.pdf
 *.csv
 *.Rdata
 *.odb
+*.ods
 *.zip
 *.jpg
 *.sql
 *.xlsx
+*.doc
 *.docx
 *.xlsx#
 *.rar
