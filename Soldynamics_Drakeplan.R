@@ -6,7 +6,7 @@ rm(list=ls())
 # Load library
 library("drake")
 library("tidyverse")
-library("runjags")
+library("rjags")
 
 # drake configurations
 pkgconfig::set_config("drake::strings_in_dots" = "literals")

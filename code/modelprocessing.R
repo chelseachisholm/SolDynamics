@@ -3,11 +3,11 @@
 
 #load(occ,od_21122018.RData)
 
-source('./helperfunctions.R')
+source('./code/helperfunctions.R')
 
 ### Convergence checks ####
 # Plot the mcmc chain and the posterior sample for p
-plot(Samples)
+plot(Samples, ask=T)
 
 # convergence check
 gelman.plot(Samples)
@@ -20,7 +20,8 @@ Samples.wd <- window(Samples, start = 1500 )
 plot(Samples.wd)
 
 #### Plot 1: Change in number of patches ####
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+#mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+mcmc <- as.data.frame(cbind(Samples[[1]])) 
 coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]")]
 
 #For now the survival and number of occupied patches is way too high. What's going on?
@@ -37,13 +38,13 @@ newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
 pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
 
 for (i in 1:nrow(pred_mean_dist)){
-  pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_phi1"] + newdata * mcmc[i,"beta_phi2"])
+  pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_phi[1]"] + newdata * mcmc[i,"beta_phi[2]"])
 }
 
 credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
 credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
 
-pred_y <- antilogit(mean(mcmc[,'beta_phi1']) + newdata* mean(mcmc[,'beta_phi2']))
+pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 

@@ -18,6 +18,7 @@ occ <- as.matrix(dat[,c(6, 17, 7, 8, 9)])
 dem <- as.matrix(dat[,c(10,17,11,17, 12)])
 flo <- as.matrix(dat[,c(17,17,13,17, 14)])
 hei <- as.matrix(dat[,c(17,17,15,17, 16)])
+pa <- dat$PatchArea
 
 ## Add in covariates
 #read in env data

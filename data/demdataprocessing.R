@@ -2,10 +2,8 @@
 #C. Chisholm, 21.10.2019
 
 library(dplyr)
-library(tidyr)
-setwd('./')
 
-sol <- read.table('Solidago_PA_2008-2012.txt')
+sol <- read.table('./data/Solidago_PA_2008-2012.txt')
 sol <- sol %>% select(PATCH, YEAR, Easting, Northing, occurrence, Altitude) %>%
   rename(patch=PATCH, year=YEAR, occ=occurrence)  #%>% = éviter l’imbrication des fonctions les unes dans les autres. jardin%>% head() est l'équivalent de head(jardin). Peut être lu comme "ensuite"
 
@@ -19,17 +17,17 @@ head(sols) #2741 patches x 4 times points (2008,2010,2011,2012)
 dem8 <- read.table('~/Dropbox/Projects/MIREN/data/To_Gregor_Graubünden_demographic_sampling/insitu_08.txt', header=T )
 dem8 <- dem8 %>% mutate(AREA=width1*length1, MeanDens = rowMeans(select(., starts_with("d")), na.rm = TRUE)) %>%
   filter(Species=='SC') %>% 
-  select(Name, Easting, Northing, AREA, MeanDens)
+  dplyr::select(Name, Easting, Northing, AREA, MeanDens)
 
 dem10 <- read.table('~/Dropbox/Projects/MIREN/data/To_Gregor_Graubünden_demographic_sampling/data_in_situ_vor_hint_rhein2010.txt', header=T)
-dem10 <- dem10 %>% select(-c(disturbance, dist_anthro, DateTime)) %>% 
+dem10 <- dem10 %>% dplyr::select(-disturbance, -dist_anthro, -DateTime) %>% 
   mutate(AREA=width1*length1, MeanDens = rowMeans(select(., paste0("d", 1:20)), na.rm=T),
          MeanHeight= rowMeans(select(., starts_with("Height")), na.rm=T),
          MeanFlower = rowMeans(select(., starts_with("Flower_"))), na.rm=T) %>%
   filter(Species=='SC') %>% 
-  select(Name, Easting, Northing, AREA, MeanDens, MeanFlower, MeanHeight)
+  dplyr::select(Name, Easting, Northing, AREA, MeanDens, MeanFlower, MeanHeight)
 
-dem12 <- read.csv('SOLIDAGO_DEMOGRAPHYDATA_50m.csv', sep='\t') #all solidago data
+dem12 <- read.csv('./data/SOLIDAGO_DEMOGRAPHYDATA_50m.csv', sep='\t') #all solidago data
 dem12 <- dem12 %>% mutate(MeanHeight = as.numeric(as.character(MeanHeight)), MeanDens=MeanDens, MeanFlower=MeanFlower) %>%
   select(Name, Easting, Northing, AREA, MeanDens, MeanFlower, MeanHeight)
 #dem12<-read.csv('dem12_updated.csv')
@@ -42,7 +40,8 @@ dem10 <- dem10 %>% arrange(Name) %>% mutate(Name=toupper(Name)) %>% separate(Nam
 dem12 <- dem12 %>% arrange(Name) %>% mutate(Name=toupper(Name)) %>% separate(Name, c('P1','P2','P3','P4'), '-')
 alldem <- full_join(dem8, dem10, by=c('Easting','Northing'))
 alldem <- full_join(alldem, dem12, by=c('Easting','Northing'))
-alldem <- alldem %>% select(Easting, Northing, MeanDens.x, MeanDens.y, MeanDens, MeanFlower.x, MeanFlower.y, MeanHeight.x, MeanHeight.y) %>%
+alldem <- alldem %>% mutate(PatchArea=sum(AREA.x, AREA.y, AREA, na.rm=T)/3) %>% 
+  select(Easting, Northing, PatchArea, MeanDens.x, MeanDens.y, MeanDens, MeanFlower.x, MeanFlower.y, MeanHeight.x, MeanHeight.y) %>%
   rename(Density08 = MeanDens.x, Density10=MeanDens.y, Density12=MeanDens, Flower10 = MeanFlower.x, Flower12=MeanFlower.y, Height10=MeanHeight.x, Height12=MeanHeight.y)
 
 plot(alldem$Density08, alldem$Density10)
@@ -65,7 +64,7 @@ rar$year2010 <- ifelse(!is.na(rar$Density10)&rar$year2010==0, 1, rar$year2010)#i
 rar$year2012 <- ifelse(!is.na(rar$Density12)&rar$year2012==0, 1, rar$year2012) #no chnage, 218
 
 alldem <- rar
-write.csv(alldem, 'cleandem.csv')
+write.csv(alldem, './data/cleandem.csv')
 ############
 #Run model of population dynamics
 mt <- glm(occ ~ year, family=binomial, data=sol)
