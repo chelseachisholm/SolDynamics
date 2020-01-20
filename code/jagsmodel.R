@@ -20,9 +20,9 @@ for(i in 1:nrow(occ)){
 }
 
 library(scales)
-totseed <- rescale(dem*pa*flo)
-elev <- rescale(elev
-                )
+totseed <- rescale(dem*flo)
+elev <- rescale(elev)
+
 sink("occ1.txt") 
 
 cat(
@@ -130,7 +130,7 @@ Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(oc
 inits_fn = function() list(gamma0=0.1, psi1 = 0.1, mu_seed = 1, tau_seed= 1, beta_phi=runif(2,-3,3), beta_a=runif(2, -3,3),z = z, p = 0.9)
 
 load.module('glm')
-jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 1, n.adapt= 1000)
+jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 1, n.adapt= 50)
 
 # Specify parameters for which posterior samples are saved
 para.names = c('n_occ', 'p', 'gamma0', 'beta_phi[1]', 'beta_phi[2]', 'beta_a[1]', 'beta_a[2]', 'beta_f[1]', 'beta_f[2]', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
