@@ -1,7 +1,6 @@
 ### Process demographic data across years 2008-2012 ####
 #C. Chisholm, 21.10.2019
 
-library(dplyr)
 library(tidyverse)
 library(geosphere)
 library(rgdal)
@@ -38,11 +37,6 @@ dem12 <- dem12 %>% mutate(MeanHeight = as.numeric(as.character(MeanHeight)), Mea
 
 #### Transform UTMs to lat longs ####
 
-#### Join data using space-nearest patch approach ####
-#dem8 <- dem8 %>% arrange(Name) %>% mutate(Name=toupper(Name)) #total 122
-#dem10 <- dem10 %>% arrange(Name) %>% mutate(Name=toupper(Name)) %>% separate(Name, c('P1','P2'), '-') #2 plots merged, plus a few added, total 131
-#dem12 <- dem12 %>% arrange(Name) %>% mutate(Name=toupper(Name)) %>% separate(Name, c('P1','P2','P3','P4'), '-')
-
 ConvertCoordinates <- function(easting,northing) {
   out = cbind(easting,northing)
   mask = !is.na(easting)
@@ -50,28 +44,59 @@ ConvertCoordinates <- function(easting,northing) {
   out[mask,]=sp@coords
   out
 }
+
 dem8$latlon <- ConvertCoordinates(dem8$Easting, dem8$Northing)
 dem10$latlon <- ConvertCoordinates(dem10$Easting, dem10$Northing)
 dem12$latlon <- ConvertCoordinates(dem12$Easting, dem12$Northing)
 
-dem8_nest <- dem8 %>% select(Name8, latlon) #%>% nest(-Name8, Easting, Northing, .key = 'dem8_coords')
-dem10_nest <- dem10 %>% select(Name10,  latlon) #%>% nest(-Name10, Easting, Northing, .key = 'dem10_coords')
-dem12_nest <- dem12 %>% select(Name12,  latlon) %>% #nest(-Name12, Easting, Northing, .key = 'dem12_coords')
+#Convert original datast UTMNs
+pa <- sols
+pa$latlon <- ConvertCoordinates(pa$Easting, pa$Northing)
 
+dem8_nest <- dem8 %>% select(Name8, latlon) %>% nest(-Name8, latlon, .key = 'dem8_coords')
+dem10_nest <- dem10 %>% select(Name10,  latlon) %>% nest(-Name10,latlon, .key = 'dem10_coords')
+dem12_nest <- dem12 %>% select(Name12,  latlon) %>% nest(-Name12, latlon, .key = 'dem12_coords')
+pa_nest <- pa %>% select (patch, latlon) %>% nest(-patch, latlon, .key = 'pa_coords')
 
+#### Join data using space-nearest patch approach ####
 
-dem.master <- crossing(dem8_nest, dem10_nest)
+##dem8
+dem.master <- crossing(dem8_nest, pa_nest)
 
-data.dist <- dem.master %>% 
-  mutate(dist = map2_dbl(dem8_coords, dem10_coords, distm)) %>% 
+data.8 <- dem.master %>% 
+  mutate(dist = map2_dbl(dem8_coords, pa_coords, distm)) %>% 
   group_by(Name8) %>% 
   filter(dist == min(dist))
 
-alldem <- full_join(dem8, dem10, by=c('Easting','Northing'))
-alldem <- full_join(alldem, dem12, by=c('Easting','Northing'))
-alldem <- alldem %>% mutate(PatchArea=sum(AREA.x, AREA.y, AREA, na.rm=T)/3) %>% 
-  select(Easting, Northing, PatchArea, MeanDens.x, MeanDens.y, MeanDens, MeanFlower.x, MeanFlower.y, MeanHeight.x, MeanHeight.y) %>%
-  rename(Density08 = MeanDens.x, Density10=MeanDens.y, Density12=MeanDens, Flower10 = MeanFlower.x, Flower12=MeanFlower.y, Height10=MeanHeight.x, Height12=MeanHeight.y)
+dem.master <- crossing(dem10_nest, pa_nest)
+
+data.10 <- dem.master %>% 
+  mutate(dist = map2_dbl(dem10_coords, pa_coords, distm)) %>% 
+  group_by(Name10) %>% 
+  filter(dist == min(dist))
+
+dem.master <- crossing(dem12_nest, pa_nest)
+
+data.12 <- dem.master %>% 
+  mutate(dist = map2_dbl(dem12_coords, pa_coords, distm)) %>% 
+  group_by(Name12) %>% 
+  filter(dist == min(dist))
+
+#Match full demography data to patch names, filter out patches which are 100 m apart
+
+dem8_matched <- left_join(dem8, data.8) %>% filter(dist <100) %>%#6 filtered out
+  select(patch, Area, MeanDens)
+dem10_matched <- left_join(dem10, data.10) %>% filter(dist <100) %>%#none filtered
+  select(patch, Area, MeanDens, MeanFlower, MeanHeight)
+dem12_matched <- left_join(dem12, data.12) %>% filter(dist <100) %>%#non-filtered
+  select(patch, Area, MeanDens, MeanFlower, MeanHeight)
+
+alldem <- full_join(dem8_matched, dem10_matched, by='patch')
+alldem <- alldem  %>%
+  rename(Area08 = Area.x, Area10 = Area.y, Density08 = MeanDens.x, Density10=MeanDens.y, Flower10 = MeanFlower, Height10=MeanHeight)
+alldem <- full_join(alldem, dem12_matched, by='patch')
+alldem <- alldem %>% 
+  rename(Area12 = Area, Density12=MeanDens, Flower12 = MeanFlower, Height12=MeanHeight)
 
 plot(alldem$Density08, alldem$Density10)
 
@@ -79,32 +104,26 @@ plot(alldem$Density10, alldem$Density12)
 
 ### JOIN DEMOGRAPHY DATA AND OCCURRENCE DATA
 
-
-house_nest <- nest(sols, -patch, Easting, Northing, .key = 'patch_coords')
-station_nest <- nest(dem, -station_number, .key = 'dem_coords')
-
-data.master <- crossing(house_nest, station_nest)
-
-data.dist <- data.master %>% 
-  mutate(dist = map2_dbl(house_coords, station_coords, distm)) %>% 
-  group_by(house_number) %>% 
-  filter(dist == min(dist))
-
-bla <- full_join(sols, alldem, by=c('Easting', 'Northing'))
+bla <- full_join(sols, alldem, by='patch')
 rar <- bla %>% arrange(desc(patch)) 
 rar <- bla %>% filter(!is.na(patch))
 rar$Density10[is.nan(rar$Density10)] <- NA
 rar$Density08[is.nan(rar$Density08)] <- NA
-#rar$Dens3[is.nan(rar$Dens3)] <- NA
 
-#Create meaningful NA data
+#Create meaningful NA data [should I move this to the detection data?]
 #if present and no demo data, NA
 #if not present and no demo data, 0 <- FIX THESE
 rar$year2008 <- ifelse(!is.na(rar$Density08)&rar$year2008==0, 1, rar$year2008) #no change, 92
 rar$year2010 <- ifelse(!is.na(rar$Density10)&rar$year2010==0, 1, rar$year2010)#increased by 2 to 117
 rar$year2012 <- ifelse(!is.na(rar$Density12)&rar$year2012==0, 1, rar$year2012) #no chnage, 218
 
-alldem <- rar
+dim(rar) #doesn't match sols up above!
+rar %>%
+  filter(duplicated(patch) | duplicated(patch, fromLast = TRUE)) #Some rows duplicated, remove others
+
+dat <-rar %>% group_by(patch) %>% summarize_all(funs(mean), na.rm=T)
+
+alldem <- dat
 write.csv(alldem, './data/cleandem.csv')
 # ############
 # #Run model of population dynamics
