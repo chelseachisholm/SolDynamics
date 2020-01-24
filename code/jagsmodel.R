@@ -20,7 +20,8 @@ for(i in 1:nrow(occ)){
 }
 
 library(scales)
-totseed <- rescale(dem*flo)
+totseed <- dem*flo*pat
+totseed <- rescale(dem*flo*pa)
 elev <- rescale(elev)
 
 sink("occ1.txt") 
@@ -51,10 +52,12 @@ cat(
   for(t in 1:(t.max-1)){
   
   #Modelling missing data for dem and flo
-  totseed[i,t] ~ dbeta(mu_seed, tau_seed) #dpois if total counts (norm for average)
-  
+  dem[i,t] ~ dnorm(mu_dem, tau_dem) #dpois if total counts (norm for average)
+  flo[i,t] ~ dnorm(mu_flo, tau_flo) 
+  pat[i,t] ~ dnorm(mu_pat, tau_pat) 
+
   # Model of relative abundance
-  totseed[i,t] = beta_a[1] + beta_a[2] * elev[i] 
+  totseed[i,t] = dem[i,t]*flo[i,t]*pat[i,t]
   
   #  Pairwise 'source strength' calc and colonisation probability
   for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
@@ -87,18 +90,22 @@ cat(
   taut ~ dgamma(0.001,0.001)
   
   #For missing data in flowering and dem data
-  mu_seed ~ dnorm(0, 0.001) #shape1
-  tau_seed ~ dnorm(0.001,0.001) #shape2
+  mu_dem ~ dnorm(0, 0.001) #shape1
+  tau_dem ~ dgamma(0.001,0.001) #shape2
+  mu_flo ~ dnorm(0, 0.001) #shape1
+  tau_flo ~ dgamma(0.001,0.001) #shape2
+  mu_pat ~ dnorm(0, 0.001) #shape1
+  tau_pat ~ dgamma(0.001,0.001) #shape2
   
   #conjugate for mean paramater for normal dist is dnorm, for the precision its dgamma.
   #For predictors
   ##Survival
   beta_phi[1] ~ dnorm(0, 1/1000)
-  beta_phi[2] ~ dnorm(0,1/1000)
-  
-  ##Relative abundance
-  beta_a[1] ~ dnorm(0,1/1000)
-  beta_a[2] ~ dnorm(0,1/1000)
+  beta_phi[2] ~ dnorm(0, 1/1000)
+  # 
+  # ##Relative abundance
+  # beta_a[1] ~ dnorm(0,1/1000)
+  # beta_a[2] ~ dnorm(0,1/1000)
   
   ##Colonization
   gamma0 ~ dbeta(1,1)
@@ -123,7 +130,7 @@ sink()
 
 ### 2) Set up a list that contains all the necessary data
 
-Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, totseed=totseed, elev=elev[,1])
+Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, pat=pat, elev=elev[,1])
 
 
 # 3) Specify a function to generate inital values for the parameters
