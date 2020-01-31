@@ -7,6 +7,8 @@ rm(list=ls())
 library("drake")
 library("tidyverse")
 library("rjags")
+library(geosphere)
+library(rgdal)
 
 # drake configurations
 pkgconfig::set_config("drake::strings_in_dots" = "literals")

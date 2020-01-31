@@ -113,13 +113,10 @@ fu[fu==2]<-1
 z<-fu
 
 #Collate data
-jags_data <- list(nsite = nrow(occ[1:100,]), nyear = ncol(occ[1:100,]), occ = occ[1:100,], dem = dem[1:100,], flo = flo[1:100,], elev=elev[1:100,], tann=tann[1:100,], D=dist_all[1:100,])
-dem_data <- dem
-germ_data <- germ
+#occ[seq(1, nrow(occ), 50),]
+jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, dem = dem, flo = flo, elev=elev, distmat=distmat)
 
-
-
-
+save(jags_data, file='jags_data.RData')
 
 return(jags_data)
 }
