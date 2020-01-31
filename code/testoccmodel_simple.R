@@ -1553,28 +1553,32 @@ plot(Samples,ask=T)
 
 #Model 11, using negative exponential and weighting by patch abundance and flowering (plus climate variables)
 
+# Load data
+load('jags_data.RData')
+
 # Create list of neighbours within max distance (using 500 for now)
 max.dist <- 200
-NB.list <- apply(distmat,1, function(x) which(x <= max.dist))
+NB.list <- apply(jags_data$distmat,1, function(x) which(x <= max.dist))
+
 
 # Number of neighbours per patch
 n.nb <- sapply(NB.list,length)
 summary(n.nb)
 
 # A re-formated distance matrix D.nb with the distances to these neighbours
-NB.mat <- matrix(NA, nrow = nrow(occ), ncol = max(n.nb))
+NB.mat <- matrix(NA, nrow = nrow(jags_data$occ), ncol = max(n.nb))
 D.nb <- NB.mat
-for(i in 1:nrow(occ)){
+for(i in 1:nrow(jags_data$occ)){
   NB.mat[i,1:n.nb[i]] <- NB.list[[i]]
   D.nb[i,1:n.nb[i]] <- distmat[i,NB.list[[i]]]
 }
 
 # Scaling predictors
 library(scales)
-dem <- rescale(dem)
-flo <- rescale(flo)
-pat <- rescale(pat)
-elev <- rescale(elev)
+dem <- rescale(jags_data$dem)
+flo <- rescale(jags_data$flo)
+pat <- rescale(jags_data$pat)
+elev <- rescale(jags_data$elev[,1])
 
 
 sink("occ1.txt") 
@@ -1685,6 +1689,7 @@ cat(
   ",fill = TRUE, file="occ1.txt")
 
 sink()
+
 ### 2) Set up a list that contains all the necessary data
 
 Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, pat=pat, elev=elev[,1])
