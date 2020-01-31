@@ -1548,3 +1548,165 @@ plot(Samples,ask=T)
 
 
 
+
+#### MODEL 13 ####
+
+#Model 11, using negative exponential and weighting by patch abundance and flowering (plus climate variables)
+
+# Create list of neighbours within max distance (using 500 for now)
+max.dist <- 200
+NB.list <- apply(distmat,1, function(x) which(x <= max.dist))
+
+# Number of neighbours per patch
+n.nb <- sapply(NB.list,length)
+summary(n.nb)
+
+# A re-formated distance matrix D.nb with the distances to these neighbours
+NB.mat <- matrix(NA, nrow = nrow(occ), ncol = max(n.nb))
+D.nb <- NB.mat
+for(i in 1:nrow(occ)){
+  NB.mat[i,1:n.nb[i]] <- NB.list[[i]]
+  D.nb[i,1:n.nb[i]] <- distmat[i,NB.list[[i]]]
+}
+
+# Scaling predictors
+library(scales)
+dem <- rescale(dem)
+flo <- rescale(flo)
+pat <- rescale(pat)
+elev <- rescale(elev)
+
+
+sink("occ1.txt") 
+
+cat(
+  "
+  
+  model{
+  
+  # Observation model
+  for(t in 1:t.max){
+  for(i in 1:n.sites){
+  muY[i,t] <- z[i,t]*p
+  y[i,t] ~ dbern(muY[i,t])
+  }
+  }
+  
+  
+  # State (process) model
+  # 1st year (2008) 
+  for(i in 1:n.sites){
+  z[i,1] ~ dbern(psi1)
+  
+  # Years 2009-2012
+  for(t in 1:(t.max-1)){
+  
+  #Modelling missing data for demographic data
+  dem[i,t] ~ dnorm(mu_dem[i,t], tau_dem) 
+  flo[i,t] ~ dnorm(mu_flo[i,t], tau_flo) 
+  pat[i,t] ~ dnorm(mu_pat[i,t], tau_pat) 
+
+  #Models of elevation effects on dem data
+  mu_dem[i,t] <- beta_dem[1] + beta_dem[2]*elev[i]
+  mu_flo[i,t] <- beta_flo[1] + beta_flo[2]*elev[i]
+  mu_pat[i,t] <- beta_pat[1] + beta_pat[2]*elev[i]
+
+  # Model of relative abundance
+  logit(totseed[i,t]) <- mu_dem[i,t]*mu_flo[i,t]*mu_pat[i,t]
+  
+
+  #  Pairwise 'source strength' calc and colonisation probability
+  for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
+  gammaDistPairs[i,n,t] <- gamma0 * exp(-gamma0*D.nb[i,n]) * totseed[NB.mat[i,n],t] * z[NB.mat[i,n],t] 
+  }
+  
+  # Model of colonization probability 
+  gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
+  
+  #  Model of local survival probability (1-extinction) 
+  logit(phi[i,t]) <- beta_phi[1] + beta_phi[2]*elev[i] 
+  
+  # Generating occupancy probability
+  Ez[i,t+1] = gamma[i,t]*(1 - z[i,t]) + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] + 0.001
+  #P(occ) = P(colonized if not there) + 1-(P(extinction)*(P(not colonized and there, i.e. survived from last year)))
+  
+  #True occupancy probability  
+  z[i,t+1] ~ dbern(Ez[i,t+1])
+  
+  }
+  }
+  
+  
+  # Prior distributions
+  
+  ##For year 1
+  psi1 ~ dbeta(1,1)
+  
+  #Detection
+  p ~ dbeta(1, 1)
+  
+  
+  #For missing data in flowering and dem data
+  #mu_dem ~ dnorm(0, 0.001) 
+  tau_dem ~ dgamma(0.001,0.001) 
+  #mu_flo ~ dnorm(0, 0.001) 
+  tau_flo ~ dgamma(0.001,0.001) 
+  #mu_pat ~ dnorm(0, 0.001) 
+  tau_pat ~ dgamma(0.001,0.001) 
+  
+  #Demography
+  beta_dem[1] ~ dnorm(0, 1/1000)
+  beta_dem[2] ~ dnorm(0, 1/1000)
+  beta_flo[1] ~ dnorm(0, 1/1000)
+  beta_flo[2] ~ dnorm(0, 1/1000)
+  beta_pat[1] ~ dnorm(0, 1/1000)
+  beta_pat[2] ~ dnorm(0, 1/1000)
+
+  #Survival
+  beta_phi[1] ~ dnorm(0, 1/1000)
+  beta_phi[2] ~ dnorm(0, 1/1000)
+  
+  #Colonization
+  gamma0 ~ dbeta(1,1)
+  
+  ###Derived quantities block
+  #First year
+  psi[1]=psi1
+  n_occ[1]=sum(z[1:n.sites,1])
+  
+  #All subsequent years
+  for(t in 1:(t.max-1)) {
+  n_occ[t+1]=sum(z[1:n.sites,t+1])
+  }
+  
+  
+  
+  }
+  ",fill = TRUE, file="occ1.txt")
+
+sink()
+### 2) Set up a list that contains all the necessary data
+
+Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, pat=pat, elev=elev[,1])
+
+init.z <- as.matrix(z)
+
+init.z[is.na(init.z)] <- 0
+# 3) Specify a function to generate inital values for the parameters
+inits_fn = function() list(gamma0=0.1, psi1 = 0.1, tau_dem= 1, tau_flo= 1, tau_pat = 1, beta_dem=runif(2,-3,3), beta_flo=runif(2,-3,3), beta_pat=runif(2,-3,3), beta_phi=runif(2,-3,3), p = 0.9)
+
+jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 3, n.adapt= 1000, inits = inits_fn)
+
+# Specify parameters for which posterior samples are saved
+para.names = c('n_occ', 'p', 'gamma0', 
+               'beta_dem[1]', 'beta_dem[2]', 
+               'beta_flo[1]', 'beta_flo[2]', 
+               'beta_pat[1]', 'beta_pat[2]',
+               'beta_phi[1]', 'beta_phi[2]') 
+
+### 4) Continue the MCMC runs with sampling
+Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1500)
+
+par_vals = summary(Samples)$statistics
+summary(Samples)
+plot(Samples,ask=T)

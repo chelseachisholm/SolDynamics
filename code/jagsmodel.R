@@ -1,28 +1,31 @@
 #### Full model 14.01.2020
 
-#Model includes population predictors and climate
-#Create list of neighbours within max distance (using 500 for now)
-#Create a list of neighbours within max.dist for each patch
+# Load data
+load('jags_data.RData')
+
+# Create list of neighbours within max distance (using 500 for now)
 max.dist <- 200
-NB.list <- apply(distmat,1, function(x) which(x <= max.dist))
+NB.list <- apply(jags_data$distmat,1, function(x) which(x <= max.dist))
+
 # Number of neighbours per patch
 n.nb <- sapply(NB.list,length)
 summary(n.nb)
-# 
-# Here I create a matrix NB.mat with the patch numbers (indices) of all neighbours
-# for each patch
-# and a re-formated distance matrix D.nb with the distances to these neighbours
-NB.mat <- matrix(NA, nrow = nrow(occ), ncol = max(n.nb))
+
+# A re-formated distance matrix D.nb with the distances to these neighbours
+NB.mat <- matrix(NA, nrow = nrow(jags_data$occ), ncol = max(n.nb))
 D.nb <- NB.mat
-for(i in 1:nrow(occ)){
+for(i in 1:nrow(jags_data$occ)){
   NB.mat[i,1:n.nb[i]] <- NB.list[[i]]
   D.nb[i,1:n.nb[i]] <- distmat[i,NB.list[[i]]]
 }
 
+# Scaling predictors
 library(scales)
-totseed <- dem*flo*pat
-totseed <- rescale(dem*flo*pa)
-elev <- rescale(elev)
+dem <- rescale(jags_data$dem)
+flo <- rescale(jags_data$flo)
+pat <- rescale(jags_data$pat)
+elev <- rescale(jags_data$elev[,1])
+
 
 sink("occ1.txt") 
 
@@ -51,13 +54,13 @@ cat(
   # Years 2009-2012
   for(t in 1:(t.max-1)){
   
-  #Modelling missing data for dem and flo
-  dem[i,t] ~ dnorm(mu_dem, tau_dem) #dpois if total counts (norm for average)
+  #Modelling missing data for demographic data
+  dem[i,t] ~ dnorm(mu_dem, tau_dem) 
   flo[i,t] ~ dnorm(mu_flo, tau_flo) 
   pat[i,t] ~ dnorm(mu_pat, tau_pat) 
 
   # Model of relative abundance
-  totseed[i,t] = dem[i,t]*flo[i,t]*pat[i,t]
+  totseed[i,t] <- dem[i,t]*flo[i,t]*pat[i,t]
   
   #  Pairwise 'source strength' calc and colonisation probability
   for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
@@ -67,7 +70,7 @@ cat(
   # Model of colonization probability 
   gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
 
-  #  Model of local survival probability (1-extinction) 
+  #  Model of local survival probability (1-extinction) + random year effect 
   logit(phi[i,t]) <- beta_phi[1] + beta_phi[2]*elev[i] + trand[t] 
   
   # Generating occupancy probability
@@ -82,38 +85,37 @@ cat(
   
   
   # Prior distributions
+  
   ##For year 1
   psi1 ~ dbeta(1,1)
+
+  #Detection
   p ~ dbeta(1, 1)
   
   #For random effects of year 
   taut ~ dgamma(0.001,0.001)
   
   #For missing data in flowering and dem data
-  mu_dem ~ dnorm(0, 0.001) #shape1
-  tau_dem ~ dgamma(0.001,0.001) #shape2
-  mu_flo ~ dnorm(0, 0.001) #shape1
-  tau_flo ~ dgamma(0.001,0.001) #shape2
-  mu_pat ~ dnorm(0, 0.001) #shape1
-  tau_pat ~ dgamma(0.001,0.001) #shape2
+  mu_dem ~ dnorm(0, 0.001) 
+  tau_dem ~ dgamma(0.001,0.001) 
+  mu_flo ~ dnorm(0, 0.001) 
+  tau_flo ~ dgamma(0.001,0.001) 
+  mu_pat ~ dnorm(0, 0.001) 
+  tau_pat ~ dgamma(0.001,0.001) 
   
-  #conjugate for mean paramater for normal dist is dnorm, for the precision its dgamma.
-  #For predictors
-  ##Survival
+  #Survival
   beta_phi[1] ~ dnorm(0, 1/1000)
   beta_phi[2] ~ dnorm(0, 1/1000)
-  # 
-  # ##Relative abundance
-  # beta_a[1] ~ dnorm(0,1/1000)
-  # beta_a[2] ~ dnorm(0,1/1000)
   
-  ##Colonization
+  #Colonization
   gamma0 ~ dbeta(1,1)
   
   ###Derived quantities block
+  #First year
   psi[1]=psi1
   n_occ[1]=sum(z[1:n.sites,1])
   
+  #All subsequent years
   for(t in 1:(t.max-1)) {
   n_occ[t+1]=sum(z[1:n.sites,t+1])
   }
@@ -130,17 +132,16 @@ sink()
 
 ### 2) Set up a list that contains all the necessary data
 
-Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, pat=pat, elev=elev[,1])
+Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(jags_data$occ), t.max = ncol(jags_data$occ), y = jags_data$occ, z=jags_data$z, dem=dem, flo=flo, pat=pat, elev=elev)
 
 
 # 3) Specify a function to generate inital values for the parameters
-inits_fn = function() list(gamma0=0.1, psi1 = 0.1, mu_seed = 1, tau_seed= 1, beta_phi=runif(2,-3,3), beta_a=runif(2, -3,3),z = z, p = 0.9)
+inits_fn = function() list(gamma0=0.1, psi1 = 0.1, mu_dem = 1, tau_dem= 1, mu_flo = 1, tau_flo= 1, mu_pat = 1, tau_pat = 1, beta_phi=runif(2,-3,3), z = z, p = 0.9)
 
-load.module('glm')
-jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 1, n.adapt= 50)
+jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 3, n.adapt= 50)
 
 # Specify parameters for which posterior samples are saved
-para.names = c('n_occ', 'p', 'gamma0', 'beta_phi[1]', 'beta_phi[2]', 'beta_a[1]', 'beta_a[2]', 'beta_f[1]', 'beta_f[2]', 'taut')  #all the data for one parameter of interest, like colonization probability, using some of the other parameter estimes. Hmmm...
+para.names = c('n_occ', 'p', 'gamma0', 'beta_phi[1]', 'beta_phi[2]', 'taut') 
 
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1000)

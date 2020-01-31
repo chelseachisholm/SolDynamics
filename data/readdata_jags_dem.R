@@ -57,7 +57,7 @@ dist_all = abs( distmat - t(distmat))
 #### DETECTION DATA ####
 
 # Herb Chronology data (generate presence/absences)
-chrono <- read.csv('./data/Means_of_age_matched.csv', head=T) #48 rows, has matched columsn from germ dataset
+chrono <- read.csv('./data/Means_of_age_matched.csv', head=T) #48 rows, has matched columns from germ dataset
 chrono <- chrono %>% mutate(Altitude=(Elevation +Elevation.1)/2)
 dat <- data.frame(Name=chrono$Name, Elevation=chrono$Altitude, Easting=chrono$Easting, Northing=chrono$Northing, age=chrono$Oldest, y2008=NA, y2009=NA, y2010=NA, y2011=NA, y2012=1) 
 dat[which(dat$age == 4), 6:9] <- 1
@@ -90,20 +90,29 @@ herb_d <- dem.master %>%
   group_by(Name) %>% 
   filter(dist == min(dist))
 
-#Match patches using join
+# Match patches using join
 sols <- sols %>% rename(Elevation=Altitude)
 herbchrono <- full_join(dat, herb_d, by='Name') %>% 
   filter(dist<200) %>% #loses 4 patches
   select(patch, y2008, y2009, y2010, y2011, y2012) 
 herbchrono[duplicated(herbchrono$patch),] # some patches are combined
 herbchrono <- herbchrono[-c(20:21,31,44),]
+herbchrono[is.na(herbchrono)]<-0
 
 herb<- full_join(sols, herbchrono) #%>% arrange(patch)  #missing 8 patches, greater than 200 m away from track grids
 #There appears to be 16 patches missing P.1400, P/1408, P.1412, P.1416. Others missing later on as well. Why?
 
+# Check matched correctly
+
+dim(herb[rowSums(herb[,9:13])>0,]) #40 patches, that's right! But it looks like there are some false positives in our dataset. Remove for now.
+
+# Remove false positives
 herb <- herb[,c(9:13)]
-herb[which(rowSums(occ, na.rm=T)==0),]<-NA #removes false positives
-herb[is.na(herb)]<-0
+herb[which(occ==1)]<-NA #removes false positives, FIX THIS GOD DAMN INDEXING ISSUE
+herb[rowSums(herb)>0,]
+
+
+sum(herb==occ, na.rm=T)
 
 z<-occ
 
@@ -113,13 +122,10 @@ fu[fu==2]<-1
 z<-fu
 
 #Collate data
-jags_data <- list(nsite = nrow(occ[1:100,]), nyear = ncol(occ[1:100,]), occ = occ[1:100,], dem = dem[1:100,], flo = flo[1:100,], elev=elev[1:100,], tann=tann[1:100,], D=dist_all[1:100,])
-dem_data <- dem
-germ_data <- germ
+#occ[seq(1, nrow(occ), 50),]
+jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, dem = dem, flo = flo, elev=elev, distmat=distmat)
 
-
-
-
+save(jags_data, file='jags_data.RData')
 
 return(jags_data)
 }
