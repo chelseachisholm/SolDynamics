@@ -93,7 +93,7 @@ herb_d <- dem.master %>%
 # Match patches using join
 sols <- sols %>% rename(Elevation=Altitude)
 herbchrono <- full_join(dat, herb_d, by='Name') %>% 
-  filter(dist<200) %>% #loses 4 patches
+  filter(dist<50) %>% #loses 12 patches (making this 100 removes 6)
   select(patch, y2008, y2009, y2010, y2011, y2012) 
 herbchrono[duplicated(herbchrono$patch),] # some patches are combined
 herbchrono <- herbchrono[-c(20:21,31,44),]
@@ -104,19 +104,21 @@ herb<- full_join(sols, herbchrono) #%>% arrange(patch)  #missing 8 patches, grea
 
 # Check matched correctly
 
-dim(herb[rowSums(herb[,9:13])>0,]) #40 patches, that's right! But it looks like there are some false positives in our dataset. Remove for now.
+dim(herb[which(rowSums(herb[,9:13])>0),]) #33 patches, that's right! But it looks like there are some false positives in our dataset. Remove for now.
+herb[which(rowSums(herb[,9:13])>0),]
 
 # Remove false positives
-herb <- herb[,c(9:13)]
-herb[which(occ==1)]<-NA #removes false positives, FIX THIS GOD DAMN INDEXING ISSUE
-herb[rowSums(herb)>0,]
+herbs <- herb %>% mutate(y2008=ifelse(year2008==1 & y2008==0, NA, y2008), 
+                y2010=ifelse(year2010==1 & y2010==0, NA, y2010),
+                y2011=ifelse(year2011==1 & y2011==0, NA, y2011),
+                y2012=ifelse(year2012==1 & y2012==0, NA, y2012))
 
+herb <- herbs[,c(9:13)]
+herb[is.na(herb)] <- 0
+rar<-occ
+rar[is.na(rar)] <- 0
 
-sum(herb==occ, na.rm=T)
-
-z<-occ
-
-fu <- z+herb
+fu <- rar+herb
 fu[fu==0]<-NA
 fu[fu==2]<-1
 z<-fu

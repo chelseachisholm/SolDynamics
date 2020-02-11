@@ -1557,7 +1557,7 @@ plot(Samples,ask=T)
 load('jags_data.RData')
 
 # Create list of neighbours within max distance (using 500 for now)
-max.dist <- 200
+max.dist <- 500
 NB.list <- apply(jags_data$distmat,1, function(x) which(x <= max.dist))
 
 
@@ -1692,13 +1692,14 @@ sink()
 
 ### 2) Set up a list that contains all the necessary data
 
-Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(occ), t.max = ncol(occ), y = occ, z=z, dem=dem, flo=flo, pat=pat, elev=elev[,1])
+Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(jags_data$occ), t.max = ncol(jags_data$occ), y = jags_data$occ, z=jags_data$z, dem=dem, flo=flo, pat=pat, elev=elev)
 
-init.z <- as.matrix(z)
+init.z <- as.matrix(jags_data$z)
 
 init.z[is.na(init.z)] <- 0
+
 # 3) Specify a function to generate inital values for the parameters
-inits_fn = function() list(gamma0=0.1, psi1 = 0.1, tau_dem= 1, tau_flo= 1, tau_pat = 1, beta_dem=runif(2,-3,3), beta_flo=runif(2,-3,3), beta_pat=runif(2,-3,3), beta_phi=runif(2,-3,3), p = 0.9)
+inits_fn = function() list(gamma0=0.1, psi1 = 0.1, tau_dem= 1, tau_flo= 1, tau_pat = 1, beta_dem=runif(2,-3,3), beta_flo=runif(2,-3,3), beta_pat=runif(2,-3,3), beta_phi=runif(2,-3,3), p = 0.5)
 
 jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 3, n.adapt= 1000, inits = inits_fn)
 
