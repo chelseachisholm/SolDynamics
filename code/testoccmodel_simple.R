@@ -1713,6 +1713,8 @@ para.names = c('n_occ', 'p', 'gamma0',
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1500)
 
+save(Samples, file='Sample_output.RData')
+
 par_vals = summary(Samples)$statistics
 summary(Samples)
 plot(Samples,ask=T)
