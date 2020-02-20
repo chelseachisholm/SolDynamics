@@ -19,14 +19,34 @@ summary(Samples)
 Samples.wd <- window(Samples, start = 1500 )
 plot(Samples.wd)
 
-#### Plot 1: Change in number of patches ####
-#mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
-mcmc <- as.data.frame(cbind(Samples[[1]])) 
+#### Plot: Occupied patches ####
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+#mcmc <- as.data.frame(cbind(Samples[[1]])) 
 coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]")]
+dat <- reshape2::melt(coefs)
+dat$variable <- factor(dat$variable, labels=c('2008', '2009', '2010', '2011', '2012'))
 
-#For now the survival and number of occupied patches is way too high. What's going on?
+# library
+library(ggridges)
 
-#### Plot 1: Survival and Colonisation ####
+# basic example
+ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
+  geom_density_ridges() +
+  #theme_ridges() + 
+  theme(legend.position = "none") +
+  labs(title = 'Total Patch Occupancy') +
+  scale_y_discrete("Year") +
+  scale_x_continuous("No. Patches Occupied") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values="seagreen") +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+
+
+#### Plot 1: Survival  ####
 
 nelev<- scale(elev)
 mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
@@ -48,44 +68,107 @@ pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "blue", alpha = 0.3) + 
-  scale_y_continuous("Survival") +
-  scale_x_continuous("Elevation (m)") + theme_classic()
-
-ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  scale_y_continuous("Survival") +
-  scale_x_continuous("Elevation") + theme_classic(base_size = 16)
+p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("P(Survival)") +
+  scale_x_continuous("") + theme_classic(base_size = 16)
 
 
+#### Plot 2: Abundance ####
 
-#Using ggplot and matrix mulitplication
-newdata = data.frame(x = seq(min(nelev, na.rm = TRUE), max(nelev, na.rm = TRUE),
-                             len = 100))
-Xmat = model.matrix(~x, newdata)
-coefs = mcmc[, c("beta_phi1", "beta_phi2")]
-fit = antilogit(coefs * Xmat)
-newdata = newdata %>% cbind(tidyMCMC(fit, conf.int = TRUE, conf.method = "HPDinterval"))
-ggplot(newdata, aes(y = estimate, x = x)) + geom_line() + geom_ribbon(aes(ymin = conf.low,
-                                                                          ymax = conf.high), fill = "blue", alpha = 0.3) + scale_y_continuous("Y") +
-  scale_x_continuous("X") + theme_classic()
+## Calculate the fitted values
+nvalues <- 100
+newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+
+pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+
+for (i in 1:nrow(pred_mean_dist)){
+  pred_mean_dist[i,] <- (mcmc[i,"beta_dem[1]"] + newdata * mcmc[i,"beta_dem[2]"])
+}
+
+credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+
+pred_y <- (mean(mcmc[,'beta_dem[1]']) + newdata* mean(mcmc[,'beta_dem[2]']))
+newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+
+p2 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("Abundance") +
+  scale_x_continuous("") + theme_classic(base_size = 16)
+
+#### Plot 3: Flowering ####
+
+## Calculate the fitted values
+nvalues <- 100
+newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+
+pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+
+for (i in 1:nrow(pred_mean_dist)){
+  pred_mean_dist[i,] <- (mcmc[i,"beta_flo[1]"] + newdata * mcmc[i,"beta_flo[2]"])
+}
+
+credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+
+pred_y <- (mean(mcmc[,'beta_flo[1]']) + newdata* mean(mcmc[,'beta_flo[2]']))
+newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+
+p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("Total No. Flowers") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
+
+#### Plot 4: Patch Area ####
+
+## Calculate the fitted values
+nvalues <- 100
+newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+
+pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+
+for (i in 1:nrow(pred_mean_dist)){
+  pred_mean_dist[i,] <- mcmc[i,"beta_pat[1]"] + newdata * mcmc[i,"beta_pat[2]"]
+}
+
+credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+
+pred_y <- mean(mcmc[,'beta_pat[1]']) + newdata* mean(mcmc[,'beta_pat[2]'])
+newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+
+p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("Patch Area") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
 
 
-#### Plot 2: Demography Effects ####
-#logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i,t]
-# Flowering:
-#logit(kappa[i,t]) = beta_f[1] + beta_f[2] * flo[i,t] 
-# Relative abundance
-#logit(lambda[i,t]) = beta_a[1] + beta_a[2] * dem[i,t]
+#### Plot for all demographic parameters ####
+library("cowplot")
+plot_grid(p1, p2, p3, p4, 
+          labels = c("A", "B", "C", "D"),
+          ncol = 2, nrow = 2)
 
-p_surv = antilogit(par_vals[5,1] + par_vals[6,1]*elev)
-p_flo = antilogit(par_vals[3,1] + par_vals[4,1]*flo)
-p_abu = antilogit(par_vals[1,1] + par_vals[2,1]*dem)
-Covdat <-data.frame(Year=as.factor(rep(1:5, each=2741)), flo=c(flo), elev=c(elev), dem=c(dem), Surv=c(p_surv), Flo=c(p_flo), Abund=c(p_abu))
 
-ggplot(aes(x=elev, y=Surv), data=Covdat) + geom_smooth() + geom_line() + facet_wrap(~Year)
-ggplot(aes(x=elev, y=flo), data=Covdat) + geom_point() #+ geom_line() #+ facet_wrap(~Year)
-ggplot(aes(x=dem, y=Abund), data=Covdat) + geom_point() + geom_line() + facet_wrap(~Year)
+#### EXTRA CODE ####
+
+# Plot landscape connectivity 
+
+par_vals = summary(Samples)$statistics
+gammas <- par_vals %>% as.data.frame() %>% rownames_to_column(var='param') %>%
+  filter(grepl('gamma', param)) %>% filter(param != 'gamma0') %>%
+  mutate(Year= rep(1:4, each=2741), Patch=rep(1:2741, times=4), Elev=rep(elev[,1], times=4))
+
+gammas %>% group_by(Year) %>% summarize(mean=mean(Mean))
+ggplot(gammas, aes(x=Elev, y=Mean)) + geom_point() + facet_wrap(~Year) 
+
+
+gamma0 <- par_vals %>% as.data.frame() %>% rownames_to_column(var='param') %>%
+  filter(grepl('gamma', param)) %>% filter(param == 'gamma0') 
 
 #Using simulated data
 range(elev)
@@ -108,72 +191,9 @@ ggplot(aes(x=Elev, y=p_Surv),data=sim_surv) + geom_smooth()
 # ggplot(aes(x=Flo, y=p_Flo), data=sim_flo) + geom_point()
 # ggplot(aes(x=Abund, y=p_Abund), data=sim_abund) + geom_point()
 
-#### Plot landscape connectivity ####
-
-par_vals = summary(Samples)$statistics
-gammas <- par_vals %>% as.data.frame() %>% rownames_to_column(var='param') %>%
-  filter(grepl('gamma', param)) %>% filter(param != 'gamma0') %>%
-  mutate(Year= rep(1:4, each=2741), Patch=rep(1:2741, times=4), Elev=rep(elev[,1], times=4))
-
-gammas %>% group_by(Year) %>% summarize(mean=mean(Mean))
-ggplot(gammas, aes(x=Elev, y=Mean)) + geom_point() + facet_wrap(~Year) 
-
-ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  scale_y_continuous("Survival") +
-  scale_x_continuous("Elevation") + theme_classic(base_size = 16) +
-  geom_point(data=gammas, aes(x=Elev, y=Mean), col='grey')
-
-gamma0 <- par_vals %>% as.data.frame() %>% rownames_to_column(var='param') %>%
-  filter(grepl('gamma', param)) %>% filter(param == 'gamma0') 
-
-
-#### Plot predicted quantities with uncertainty ####
-
-surv=NULL
-nsim=1000
-  for(i in 1:nsim){ ## Loop through simulations
-    surv[i] <- antilogit(X$beta_phi1[i] + X$beta_phi2[i]*elev[1])
-  }
-
-plot(NA, ylim=c(0,1), xlim=c(483:2052), axes=T, ylab="Survival probability", xlab="Elevation (m)", cex.lab=1.2)
-polygon(c(surv, surv[length(surv):1]), c(apply(surv, 1, quantile, probs=0.025), apply(surv, 1, quantile, probs=0.975)[length(surv):1]), col="grey80", border="grey80")
-lines(elev, apply(surv, 1, mean), col="blue", lwd=2.)
-#par(mfrow = c(2,2))
-
-#### Plot paramters per year? ####
-X <- as.data.frame(cbind(Samples[[1]], Samples[[2]])) #beta_phi1 and 2
-means <- apply(X,2,mean)
-upperCI <- apply(X,2,quantile,0.975)
-lowerCI <- apply(X,2,quantile,0.025)
-
-
-nYears <- ncol(occ)
-for(i in 1:length(means)) {
-  plot(means[i],lwd=3,ylim=range(c(lowerCI[i],upperCI[i])),
-       type="n")
-  polygon(c(1:nYears),
-          c(upperCI[i],rev(lowerCI[i]),upperCI[i]),col="skyblue",lty=0)
-  lines(means[i],lwd=3)
-}
-
-detach.jags()
 
 
 
-#Plot predicted quantities over a range of years?
-turnout.mat <- rbind(Samples[[1]], Samples[[2]], Samples[[3]])
-Samp.out <- data.frame(turnout.mat)
-p <- Samp.out$beta.phi2
-
-p.mean <- mean(p)
-
-plot(p.mean ~ c(1:5), xlim = c(1,5))
-
-list(int90 = HPDinterval(Samples[[1]], prob=.90),
-     int95= HPDinterval(Samples[[1]], prob=.95),
-     int99= HPDinterval(Samples[[1]], prob=.99))
-
-dic.samples(jagsModel, 1000)
 
 # #Posterior regression plots
 # dev.off()

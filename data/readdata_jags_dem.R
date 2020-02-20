@@ -125,7 +125,7 @@ z<-fu
 
 #Collate data
 #occ[seq(1, nrow(occ), 50),]
-jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, dem = dem, flo = flo, elev=elev, distmat=distmat)
+jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, dem = dem, flo = flo, pat = pat, elev=elev, distmat=distmat)
 
 save(jags_data, file='jags_data.RData')
 

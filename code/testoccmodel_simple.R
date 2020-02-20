@@ -1574,11 +1574,12 @@ for(i in 1:nrow(jags_data$occ)){
 }
 
 # Scaling predictors
-library(scales)
-dem <- rescale(jags_data$dem)
-flo <- rescale(jags_data$flo)
-pat <- rescale(jags_data$pat)
-elev <- rescale(jags_data$elev[,1])
+#library(scales) #this is for rescale, which changes it to between 0 and 1, but I already create
+#a plogit transformation below
+dem <- scale(jags_data$dem)
+flo <- scale(jags_data$flo)
+pat <- scale(jags_data$pat)
+elev <- scale(jags_data$elev[,1])
 
 
 sink("occ1.txt") 
@@ -1628,7 +1629,7 @@ cat(
   gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
   
   #  Model of local survival probability (1-extinction) 
-  logit(phi[i,t]) <- beta_phi[1] + beta_phi[2]*elev[i] 
+  logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i] 
   
   # Generating occupancy probability
   Ez[i,t+1] = gamma[i,t]*(1 - z[i,t]) + (1-(1-phi[i,t])*(1-gamma[i,t]))*z[i,t] + 0.001
