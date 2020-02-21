@@ -1576,10 +1576,11 @@ for(i in 1:nrow(jags_data$occ)){
 # Scaling predictors
 #library(scales) #this is for rescale, which changes it to between 0 and 1, but I already create
 #a plogit transformation below
-dem <- scale(jags_data$dem)
-flo <- scale(jags_data$flo)
-pat <- scale(jags_data$pat)
-elev <- scale(jags_data$elev[,1])
+#NEED TO STANDARDIZE SCALE ACROSS MATRIX!!!!!! ALSO NEED TO STATE PREDICTORS NEEDED TO STAY ABOVE 0.
+dem <- as.matrix(scale(jags_data$dem))
+flo <- as.matrix(scale(jags_data$flo))
+pat <- as.matrix(scale(jags_data$pat))
+elev <- c(scale(jags_data$elev[,1]))
 
 
 sink("occ1.txt") 
@@ -1619,15 +1620,15 @@ cat(
   # Model of relative abundance
   logit(totseed[i,t]) <- mu_dem[i,t]*mu_flo[i,t]*mu_pat[i,t]
   
-
   #  Pairwise 'source strength' calc and colonisation probability
   for(n in 1:n.nb[i]){ # loop of the nb[i] neighbours of patch i
   gammaDistPairs[i,n,t] <- gamma0 * exp(-gamma0*D.nb[i,n]) * totseed[NB.mat[i,n],t] * z[NB.mat[i,n],t] 
   }
-  
+
   # Model of colonization probability 
   gamma[i,t] = 1 - prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
-  
+
+
   #  Model of local survival probability (1-extinction) 
   logit(phi[i,t]) <- beta_phi[1] + beta_phi[2] * elev[i] 
   
@@ -1714,7 +1715,7 @@ para.names = c('n_occ', 'p', 'gamma0',
 ### 4) Continue the MCMC runs with sampling
 Samples = coda.samples(jagsModel, variable.names = para.names, n.iter = 1500)
 
-save(Samples, file='Sample_output.RData')
+save(Samples, file='Sample_outputv2.RData')
 
 par_vals = summary(Samples)$statistics
 summary(Samples)

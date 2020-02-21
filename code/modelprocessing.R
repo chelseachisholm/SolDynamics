@@ -21,7 +21,6 @@ plot(Samples.wd)
 
 #### Plot: Occupied patches ####
 mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
-#mcmc <- as.data.frame(cbind(Samples[[1]])) 
 coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]")]
 dat <- reshape2::melt(coefs)
 dat$variable <- factor(dat$variable, labels=c('2008', '2009', '2010', '2011', '2012'))
@@ -49,7 +48,6 @@ ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
 #### Plot 1: Survival  ####
 
 nelev<- scale(elev)
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -68,13 +66,54 @@ pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
-  scale_y_continuous("P(Survival)") +
-  scale_x_continuous("") + theme_classic(base_size = 16)
+p1 <- ggplot(dat, aes(y = (1-estimate), x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = (1-l_cred), ymax = (1-u_cred)), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("P(Extinction)") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
 
+p1
 
-#### Plot 2: Abundance ####
+#### Plot 2: Colonisation  ####
+
+nelev<- scale(elev)
+
+gammas <- mcmc[, grep("gamma[", colnames(mcmc), fixed=T)]
+#gamma[i,t], but there are weird .2's added
+gammas <- gammas[, grep("]$", colnames(gammas))]
+
+#take all four years and get the predicted means plus credible intervals (does this work?...)
+gammas1 <- gammas[, grep("1]", colnames(gammas), fixed=T)]
+gammas2 <- gammas[, grep("2]", colnames(gammas), fixed=T)]
+gammas3 <- gammas[, grep("3]", colnames(gammas), fixed=T)]
+gammas4 <- gammas[, grep("4]", colnames(gammas), fixed=T)]
+#gammas5 <- gammas[, grep("5]", colnames(gammas), fixed=T)] #nothing for last year because not estimated
+
+## Calculate the fitted values
+
+gamma1_mean <- colMeans(gammas1)
+cl_1 <- apply(gammas1, MARGIN = 2, quantile, prob = 0.025)
+cu_1 <- apply(gammas1, MARGIN = 2, quantile, prob = 0.975)
+gamma2_mean <- colMeans(gammas2)
+cl_2 <- apply(gammas2, MARGIN = 2, quantile, prob = 0.025)
+cu_2 <- apply(gammas2, MARGIN = 2, quantile, prob = 0.975)
+gamma3_mean <- colMeans(gammas3)
+cl_3 <- apply(gammas3, MARGIN = 2, quantile, prob = 0.025)
+cu_3 <- apply(gammas3, MARGIN = 2, quantile, prob = 0.975)
+gamma4_mean <- colMeans(gammas4)
+cl_4 <- apply(gammas4, MARGIN = 2, quantile, prob = 0.025)
+cu_4 <- apply(gammas4, MARGIN = 2, quantile, prob = 0.975)
+
+dat <- data.frame(elev=elev, estimate=gamma1_mean, l_cred=cl_1, u_cred=cu_1)
+
+p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_smooth() + 
+  geom_ribbon(aes(ymin = (l_cred), ymax = (u_cred)), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("P(Colonisation)") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
+
+p1 #This is a bit fucked- it isn't with respect to elevation, so I'm not sure how to show it in a smooth fashion (vs. the dumb caterplot I have now)
+#Maybe gamma0 ~ elevation?
+
+#### Plot 3: Abundance ####
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -93,12 +132,17 @@ pred_y <- (mean(mcmc[,'beta_dem[1]']) + newdata* mean(mcmc[,'beta_dem[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p2 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() +
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) +
   scale_y_continuous("Abundance") +
   scale_x_continuous("") + theme_classic(base_size = 16)
 
-#### Plot 3: Flowering ####
+# p3 <- ggplot(dat, aes(y = (estimate*15+15), x = elev)) + geom_line() + 
+#   geom_ribbon(aes(ymin = (l_cred*15+15), ymax = (u_cred*15+15)), fill = "orange", alpha = 0.3) + 
+#   scale_y_continuous("Abundance") +
+#   scale_x_continuous("") + theme_classic(base_size = 16)
+
+#### Plot 4: Flowering ####
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -117,12 +161,12 @@ pred_y <- (mean(mcmc[,'beta_flo[1]']) + newdata* mean(mcmc[,'beta_flo[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("Total No. Flowers") +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
 
-#### Plot 4: Patch Area ####
+#### Plot 5: Patch Area ####
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -141,17 +185,17 @@ pred_y <- mean(mcmc[,'beta_pat[1]']) + newdata* mean(mcmc[,'beta_pat[2]'])
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+p5 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("Patch Area") +
-  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
+  scale_x_continuous("") + theme_classic(base_size = 16)
 
 
 #### Plot for all demographic parameters ####
 library("cowplot")
-plot_grid(p1, p2, p3, p4, 
-          labels = c("A", "B", "C", "D"),
-          ncol = 2, nrow = 2)
+plot_grid(p3, p4, p5, 
+          labels = c("A", "B", "C"),
+          ncol = 3, nrow = 1)
 
 
 #### EXTRA CODE ####
