@@ -1703,7 +1703,7 @@ init.z[is.na(init.z)] <- 0
 # 3) Specify a function to generate inital values for the parameters
 inits_fn = function() list(gamma0=0.1, psi1 = 0.1, tau_dem= 1, tau_flo= 1, tau_pat = 1, beta_dem=runif(2,-3,3), beta_flo=runif(2,-3,3), beta_pat=runif(2,-3,3), beta_phi=runif(2,-3,3), p = 0.5)
 
-jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 3, n.adapt= 1000, inits = inits_fn)
+jagsModel = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 1, n.adapt= 10, inits = inits_fn)
 
 # Specify parameters for which posterior samples are saved
 para.names = c('n_occ', 'p', 'gamma0', 

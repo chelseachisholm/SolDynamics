@@ -1,23 +1,23 @@
 #### Process Output from JAGS models ####
 #07.06.2019 C. Chisholm
 
-#load(occ,od_21122018.RData)
+load("jags_data.RData")
 
 source('./code/helperfunctions.R')
 
 ### Convergence checks ####
-# Plot the mcmc chain and the posterior sample for p
-plot(Samples, ask=T)
-
-# convergence check
-gelman.plot(Samples)
-coda::gelman.diag(Samples)
-
-# Statistical summaries of the posterior sample
-summary(Samples)
-
-Samples.wd <- window(Samples, start = 1500 )
-plot(Samples.wd)
+# # Plot the mcmc chain and the posterior sample for p
+# plot(Samples, ask=T)
+# 
+# # convergence check
+# gelman.plot(Samples)
+# coda::gelman.diag(Samples)
+# 
+# # Statistical summaries of the posterior sample
+# summary(Samples)
+# 
+# Samples.wd <- window(Samples, start = 1500 )
+# plot(Samples.wd)
 
 #### Plot: Occupied patches ####
 mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
@@ -46,8 +46,11 @@ ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
 
 
 #### Plot 1: Survival  ####
-
+elev <- jags_data$elev
 nelev<- scale(elev)
+
+occ <- jags_data$occ[,4]
+df <- data.frame(elev=elev[,1], occ=occ)
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -68,6 +71,9 @@ dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred
 
 p1 <- ggplot(dat, aes(y = (1-estimate), x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = (1-l_cred), ymax = (1-u_cred)), fill = "orange", alpha = 0.3) + 
+  geom_count(data = df, mapping = aes(x = elev, y = occ), fill='black', alpha=0.3) +
+  theme(legend.position="none")  +
+  scale_size_area(max_size = 10) +
   scale_y_continuous("P(Extinction)") +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
 
@@ -115,6 +121,10 @@ p1 #This is a bit fucked- it isn't with respect to elevation, so I'm not sure ho
 
 #### Plot 3: Abundance ####
 
+# Calculate max elevatio of occupancy (from df in Plot 1)
+dfm <- df[df$occ==1,]
+dfm[which.max(dfm$elev),] #1112
+
 ## Calculate the fitted values
 nvalues <- 100
 newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
@@ -135,7 +145,8 @@ dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred
 p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() +
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) +
   scale_y_continuous("Abundance") +
-  scale_x_continuous("") + theme_classic(base_size = 16)
+  scale_x_continuous("") + theme_classic(base_size = 16) + 
+  geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
 # p3 <- ggplot(dat, aes(y = (estimate*15+15), x = elev)) + geom_line() + 
 #   geom_ribbon(aes(ymin = (l_cred*15+15), ymax = (u_cred*15+15)), fill = "orange", alpha = 0.3) + 
@@ -164,7 +175,8 @@ dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred
 p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("Total No. Flowers") +
-  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
+  geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
 #### Plot 5: Patch Area ####
 
@@ -188,7 +200,8 @@ dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred
 p5 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("Patch Area") +
-  scale_x_continuous("") + theme_classic(base_size = 16)
+  scale_x_continuous("") + theme_classic(base_size = 16) + 
+  geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
 
 #### Plot for all demographic parameters ####

@@ -1,0 +1,22 @@
+---
+title: "Sol_equations"
+author: "C. Chisholm"
+date: "08/01/2020"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+curve(1-(1*exp(-(200^2)/(2*x^2))), from=1, to=50, n=100, xlab="x", ylab="y")
+curve(1-(1*exp(-(100^2)/(2*x^2))), from=1, to=50, n=100,  xlab="x", ylab="y")
+curve(1-(1*exp(-(1^2)/(2*x^2))), from=1, to=50, n=100,  xlab="x", ylab="y")
+curve(1-(1*exp(-(x^2)/(2*10^2))), from=1, to=50, n=100,  xlab="x", ylab="y")
+```
+
+$$\gamma pairs_{i,n,t} \sim 1-\gamma0^{\left(-\frac{d_{i,n}^2}{2\sigma^2}\right)}*z[NB.mat_{i,n,t}]$$
+\sum_{i=1}^n X_i
+$$\gamma_{i,t} \sim 1 - \sum_{n=1}^{n.nb} 1-\gamma pairs_{i,1:n.nb[i],t}$$
