@@ -1,9 +1,12 @@
 #### Process Output from JAGS models ####
 #07.06.2019 C. Chisholm
 
-load("jags_data.RData")
+#load("jags_data.RData")
+#load('~/Dropbox/projects/Invasion Dynamics/models/modeloutput092020_2.RData')
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]]))
+#load('~/Dropbox/projects/Invasion Dynamics/models/jags_data.RData')
 
-source('./code/helperfunctions.R')
+source('~/Dropbox/Projects/Invasion Dynamics/models/code/helperfunctions.R')
 
 ### Convergence checks ####
 # # Plot the mcmc chain and the posterior sample for p
@@ -19,18 +22,81 @@ source('./code/helperfunctions.R')
 # Samples.wd <- window(Samples, start = 1500 )
 # plot(Samples.wd)
 
-#### Plot: Occupied patches ####
+# compare parameter estimates to true values
 mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
-coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]")]
+
+require(mcmcplots)
+# caterplot(Samples, "p", style = "plain")
+# coefs = mcmc[, c("p")]
+# mean(coefs)
+# sd(coefs)
+caterplot(Samples, "alpha", style = "plain")
+
+n_occ <- rev(c(98, NA, 123, 135, 224, NA, NA, NA, NA, NA, NA, NA, 620))
+caterplot(Samples, "n_occ", style = "plain")
+caterpoints(n_occ) #Can add the true occupancy here!
+coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]", "n_occ[13]")]
+colMeans(coefs)
+sd(coefs)
+
+
+library(MCMCvis)
+MCMCsummary(Samples, params = 'beta_phi')
+MCMCsummary(Samples, params = 'beta_rho')
+
+#### Plot: p and alpha ####
+coefs = mcmc[, "p"]
 dat <- reshape2::melt(coefs)
-dat$variable <- factor(dat$variable, labels=c('2008', '2009', '2010', '2011', '2012'))
+
+ggplot(dat, aes(x = value)) +
+  geom_histogram() +
+  theme(legend.position = "none") +
+  labs(title = 'Model estimates') +
+  scale_y_discrete("Parameter p") +
+  scale_x_continuous("Value") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values="seagreen") +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+
+#mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+coefs = mcmc[, "alpha"]
+dat <- reshape2::melt(coefs)
+
+ggplot(dat, aes(x = value)) +
+  geom_histogram() +
+  theme(legend.position = "none") +
+  labs(title = 'Alpha') +
+  scale_y_discrete("Parameter alpha") +
+  scale_x_continuous("Value") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values="seagreen") +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+
+
+
+#### Plot 1: Occupied patches ####
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]",
+                 "n_occ[13]")]
+dat <- reshape2::melt(coefs)
+dat$variable <- factor(dat$variable, labels=c('2008', '2009', '2010', '2011', '2012',
+                                              '2020'))
 
 # library
 library(ggridges)
 
 # basic example
+n_occ <- data.frame(year=c('2008','2009','2010','2011','2012','2020'), nocc=c(98, NA, 123, 135, 224, 620))
 ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
-  geom_density_ridges() +
+  geom_boxplot() +
   #theme_ridges() + 
   theme(legend.position = "none") +
   labs(title = 'Total Patch Occupancy') +
@@ -42,15 +108,84 @@ ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
     legend.position="none",
     panel.spacing = unit(0.1, "lines"),
     strip.text.x = element_text(size = 8)
-  )
+  ) +
+  geom_point(data=n_occ, aes(x=nocc, y=year))
 
+#### Plot 2: Overall C, E and Turnover over the years ####
+#Extinction
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+coefs = mcmc[, c("sext[2]", "sext[3]", "sext[4]", "sext[5]")]
+dat <- reshape2::melt(coefs)
+dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
+
+# basic example
+pext <- ggplot(dat, aes(x = value, y = variable, fill="#69b3a2", alpha=0.7)) +
+  geom_density_ridges() +
+  #theme_ridges() + 
+  theme(legend.position = "none") +
+  scale_y_discrete("Year") +
+  scale_x_continuous("No. Patches") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values='#f2ad73') +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+pext
+
+#Colonisation
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]]))#, Samples[[3]])) 
+coefs = mcmc[, c("scol[2]", "scol[3]", "scol[4]", "scol[5]")]
+dat <- reshape2::melt(coefs)
+dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
+
+# basic example
+pcol <- ggplot(dat, aes(x = value, y = variable, fill="#69b3a2", alpha=0.7)) +
+  geom_density_ridges() +
+  #theme_ridges() + 
+  theme(legend.position = "none") +
+  scale_y_discrete("Year") +
+  scale_x_continuous("No. Patches") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values='#f2ad73') +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+pcol
+
+#Turnover
+mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]]))#, Samples[[3]])) 
+coefs = mcmc[, c("stur[2]", "stur[3]", "stur[4]", "stur[5]")]
+dat <- reshape2::melt(coefs)
+dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
+
+# basic example
+ptur <- ggplot(dat, aes(x = value, y = variable, fill="#69b3a2", alpha=0.7)) +
+  geom_density_ridges() +
+  #theme_ridges() + 
+  theme(legend.position = "none") +
+  scale_y_discrete("Year") +
+  scale_x_continuous("No. Patches") + 
+  theme_classic(base_size = 16) +
+  scale_fill_manual(values='#f2ad73') +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+ptur
+
+plot_grid(pcol, pext, ptur, nrow=1)
 
 #### Plot 1: Survival  ####
 elev <- jags_data$elev
 nelev<- scale(elev)
 
 occ <- jags_data$occ[,4]
-df <- data.frame(elev=elev[,1], occ=occ)
+df <- data.frame(elev=elev, occ=occ)
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -69,49 +204,31 @@ pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p1 <- ggplot(dat, aes(y = (1-estimate), x = elev)) + geom_line() + 
-  geom_ribbon(aes(ymin = (1-l_cred), ymax = (1-u_cred)), fill = "orange", alpha = 0.3) + 
-  geom_count(data = df, mapping = aes(x = elev, y = occ), fill='black', alpha=0.3) +
+p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + #estimate is P(extinction)
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  #geom_count(data = df, mapping = aes(x = elev, y = occ), fill='black', alpha=0.3) +
   theme(legend.position="none")  +
-  scale_size_area(max_size = 10) +
-  scale_y_continuous("P(Extinction)") +
+  #scale_size_area(max_size = 10) +
+  scale_y_continuous("P(Survival)") +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
 
 p1
 
-#### Plot 2: Colonisation  ####
+#### Plot 2: Dispersal  ####
 
 nelev<- scale(elev)
 
-gammas <- mcmc[, grep("gamma[", colnames(mcmc), fixed=T)]
-#gamma[i,t], but there are weird .2's added
-gammas <- gammas[, grep("]$", colnames(gammas))]
-
-#take all four years and get the predicted means plus credible intervals (does this work?...)
-gammas1 <- gammas[, grep("1]", colnames(gammas), fixed=T)]
-gammas2 <- gammas[, grep("2]", colnames(gammas), fixed=T)]
-gammas3 <- gammas[, grep("3]", colnames(gammas), fixed=T)]
-gammas4 <- gammas[, grep("4]", colnames(gammas), fixed=T)]
-#gammas5 <- gammas[, grep("5]", colnames(gammas), fixed=T)] #nothing for last year because not estimated
+alpha <- mcmc[, grep("alpha", colnames(mcmc), fixed=T)]
 
 ## Calculate the fitted values
 
-gamma1_mean <- colMeans(gammas1)
-cl_1 <- apply(gammas1, MARGIN = 2, quantile, prob = 0.025)
-cu_1 <- apply(gammas1, MARGIN = 2, quantile, prob = 0.975)
-gamma2_mean <- colMeans(gammas2)
-cl_2 <- apply(gammas2, MARGIN = 2, quantile, prob = 0.025)
-cu_2 <- apply(gammas2, MARGIN = 2, quantile, prob = 0.975)
-gamma3_mean <- colMeans(gammas3)
-cl_3 <- apply(gammas3, MARGIN = 2, quantile, prob = 0.025)
-cu_3 <- apply(gammas3, MARGIN = 2, quantile, prob = 0.975)
-gamma4_mean <- colMeans(gammas4)
-cl_4 <- apply(gammas4, MARGIN = 2, quantile, prob = 0.025)
-cu_4 <- apply(gammas4, MARGIN = 2, quantile, prob = 0.975)
+alpha_mean <- colMeans(alpha)
+cl_1 <- apply(alpha, MARGIN = 2, quantile, prob = 0.025)
+cu_1 <- apply(alpha, MARGIN = 2, quantile, prob = 0.975)
 
-dat <- data.frame(elev=elev, estimate=gamma1_mean, l_cred=cl_1, u_cred=cu_1)
+dat <- data.frame(estimate=alpha_mean, l_cred=cl_1, u_cred=cu_1)
 
-p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_smooth() + 
+p1 <- ggplot(dat, aes(y = estimate)) + geom_smooth() + 
   geom_ribbon(aes(ymin = (l_cred), ymax = (u_cred)), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("P(Colonisation)") +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
@@ -119,7 +236,7 @@ p1 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_smooth() +
 p1 #This is a bit fucked- it isn't with respect to elevation, so I'm not sure how to show it in a smooth fashion (vs. the dumb caterplot I have now)
 #Maybe gamma0 ~ elevation?
 
-#### Plot 3: Abundance ####
+#### Plot 3: Population size ####
 
 # Calculate max elevatio of occupancy (from df in Plot 1)
 dfm <- df[df$occ==1,]
@@ -132,13 +249,13 @@ newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
 pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
 
 for (i in 1:nrow(pred_mean_dist)){
-  pred_mean_dist[i,] <- (mcmc[i,"beta_dem[1]"] + newdata * mcmc[i,"beta_dem[2]"])
+  pred_mean_dist[i,] <- (mcmc[i,"beta_N[1]"] + newdata * mcmc[i,"beta_N[2]"])
 }
 
 credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
 credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
 
-pred_y <- (mean(mcmc[,'beta_dem[1]']) + newdata* mean(mcmc[,'beta_dem[2]']))
+pred_y <- (mean(mcmc[,'beta_N[1]']) + newdata* mean(mcmc[,'beta_N[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
@@ -148,6 +265,7 @@ p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() +
   scale_x_continuous("") + theme_classic(base_size = 16) + 
   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
+p3
 # p3 <- ggplot(dat, aes(y = (estimate*15+15), x = elev)) + geom_line() + 
 #   geom_ribbon(aes(ymin = (l_cred*15+15), ymax = (u_cred*15+15)), fill = "orange", alpha = 0.3) + 
 #   scale_y_continuous("Abundance") +
@@ -178,7 +296,40 @@ p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
-#### Plot 5: Patch Area ####
+p4
+
+
+#### Plot for all demographic parameters ####
+library("cowplot")
+plot_grid(p3, p4, 
+          labels = c("A", "B"),
+          ncol = 2, nrow = 1)
+
+#### Plot 5 & 6: Survival and Colonisation ####
+## Calculate the fitted values
+nvalues <- 100
+newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+
+pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+
+for (i in 1:nrow(pred_mean_dist)){
+  pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_phi[1]"] + newdata * mcmc[i,"beta_phi[2]"])
+}
+
+credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+
+pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2]']))
+newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+dat5 <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+
+p5 <- ggplot(dat5, aes(y = estimate, x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+  scale_y_continuous("P(Survival)") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
+  geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
+
+p5
 
 ## Calculate the fitted values
 nvalues <- 100
@@ -187,30 +338,87 @@ newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
 pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
 
 for (i in 1:nrow(pred_mean_dist)){
-  pred_mean_dist[i,] <- mcmc[i,"beta_pat[1]"] + newdata * mcmc[i,"beta_pat[2]"]
+  pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_rho[1]"] + newdata * mcmc[i,"beta_rho[2]"])
 }
 
 credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
 credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
 
-pred_y <- mean(mcmc[,'beta_pat[1]']) + newdata* mean(mcmc[,'beta_pat[2]'])
+pred_y <- antilogit(mean(mcmc[,'beta_rho[1]']) + newdata* mean(mcmc[,'beta_rho[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
-dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+dat6 <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p5 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+p6 <- ggplot(dat6, aes(y = estimate, x = elev)) + geom_line() + 
   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
-  scale_y_continuous("Patch Area") +
-  scale_x_continuous("") + theme_classic(base_size = 16) + 
+  scale_y_continuous("P(Colonisation)") +
+  scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
 
+p6
 
-#### Plot for all demographic parameters ####
+
+#### Plot for all colonisation parameters ####
 library("cowplot")
-plot_grid(p3, p4, p5, 
-          labels = c("A", "B", "C"),
-          ncol = 3, nrow = 1)
+plot_grid(p5, p6,  
+          #labels = c("A", "B"),
+          ncol = 2, nrow = 1)
 
+#### Plot 7: Combining colonisation and extinction rates (BUT NEED TO EXTRACT GAMMA!) #####
 
+# ## Calculate the fitted values
+# nvalues <- 100
+# newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+# 
+# newdata2 <- rep(mean(anthro), length=nvalues)
+# 
+# pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+# 
+# for (i in 1:nrow(pred_mean_dist)){
+#   pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_rho[1]"] + newdata * mcmc[i,"beta_rho[2]"] + newdata2 * mcmc[i,"beta_rho[3]"])
+# }
+# 
+# credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+# credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+# 
+# pred_y <- antilogit(mean(mcmc[,'beta_rho[1]']) + newdata* mean(mcmc[,'beta_rho[2]']) + newdata2 * mcmc[i,"beta_rho[3]"])
+# newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+# dat1 <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+# 
+# #### Extinction
+# ## Calculate the fitted values
+# nvalues <- 100
+# newdata <- seq(min(nelev), max(nelev), length.out = nvalues)
+# 
+# pred_mean_dist <- matrix(NA, nrow = nrow(mcmc), ncol = nvalues)
+# 
+# for (i in 1:nrow(pred_mean_dist)){
+#   pred_mean_dist[i,] <- antilogit(mcmc[i,"beta_phi[1]"] + newdata * mcmc[i,"beta_phi[2]"])
+# }
+# 
+# credible_lower <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.025)
+# credible_upper <- apply(pred_mean_dist, MARGIN = 2, quantile, prob = 0.975)
+# 
+# pred_y <- antilogit(mean(mcmc[,'beta_phi[1]']) + newdata* mean(mcmc[,'beta_phi[2]']))
+# newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
+# dat2 <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
+# 
+# dat <- bind_rows('Colonisation' = dat1, 'Extinction' = dat2, .id = 'process')
+# 
+# p7 <- ggplot(dat, aes(y = estimate, x = elev, color=process)) + geom_line() + #estimate is P(extinction)
+#   geom_ribbon(aes(ymin = (l_cred), ymax = (u_cred), fill = process), alpha = 0.3) +
+#   theme(legend.position="none")  +
+#   scale_y_continuous("P(process)") +
+#   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16)
+# 
+# p7
+# 
+# p7 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
+#   geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+#   scale_y_continuous("Colonisation") +
+#   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
+#   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
+# 
+# p7
 #### EXTRA CODE ####
 
 # Plot landscape connectivity 

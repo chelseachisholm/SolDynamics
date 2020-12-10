@@ -7,7 +7,7 @@ Importsoldat <- function() {
 # Occurrence data
 sol <- read.table('./data/Solidago_PA_2008-2012.txt')
 sol <- sol %>% select(PATCH, YEAR, Easting, Northing, occurrence, Altitude) %>%
-    rename(patch=PATCH, year=YEAR, occ=occurrence)  #%>% = éviter l’imbrication des fonctions les unes dans les autres. jardin%>% head() est l'équivalent de head(jardin). Peut être lu comme "ensuite"
+    rename(patch=PATCH, year=YEAR, occ=occurrence)  
   
 sols <- sol %>% spread(year, occ, sep = '') #%>% select(-year2011)
 head(sols) #2741 patches x 4 times points (2008,2010,2011,2012)
@@ -31,23 +31,11 @@ covs <- read.table('./data/Solidago_PA_2008-2012.txt')
 #filter covs to dist_anthro and temperature
 elev <- covs  %>% dplyr::select(PATCH, YEAR, Altitude) %>%
   reshape2::dcast(PATCH ~ YEAR, value=Altitude) %>% rename(patch=PATCH)
-elev$y2009 <- elev[,2]
-elev <- as.matrix(elev[,c(2,6,3:5)]) #because elev will not change
+elev <- elev[,2]
 
-tann <- covs  %>% dplyr::select(PATCH, YEAR, taveSummer) %>%
-  reshape2::dcast(PATCH ~ YEAR, value=taveSummer)
-tann$y2009 <- tann[,2]
-tann <- as.matrix(tann[,c(2,6,3:5)])
-
-gdd <- covs  %>% dplyr::select(PATCH, YEAR, ddeg000_h) %>%
-  reshape2::dcast(PATCH ~ YEAR, value=taveSummer)
-gdd$y2009 <- gdd[,2]
-gdd <- as.matrix(gdd[,c(2:6)])
-
-fdd <- covs  %>% dplyr::select(PATCH, YEAR, sfroyy_100) %>%
-  reshape2::dcast(PATCH ~ YEAR, value=taveSummer)
-fdd$y2009 <- fdd[,2]
-fdd <- as.matrix(fdd[,c(2:6)])
+anthro <- covs  %>% dplyr::select(PATCH, YEAR, Grund74) %>% #tried Bev_his already
+  reshape2::dcast(PATCH ~ YEAR, value=Bev_his)
+anthro <- anthro[,2]
 
 coords<- covs[1:2741, 3:4]
 distmat <- as.matrix(dist(coords, diag=T, upper=T))
@@ -125,7 +113,7 @@ z<-fu
 
 #Collate data
 #occ[seq(1, nrow(occ), 50),]
-jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, dem = dem, flo = flo, pat = pat, elev=elev, distmat=distmat)
+jags_data <- list(nsite = nrow(occ), nyear = ncol(occ), occ = occ, z = z, N=dem*pat, flo = flo, elev=elev, anthro = anthro, distmat=distmat)
 
 save(jags_data, file='jags_data.RData')
 
