@@ -99,7 +99,7 @@ model{
     }
   
   # Source strength calc
-  S[i,t] = prod(1-gammaDistPairs[i,1:n.nb[i],t]) #really this is site-level 'connectivity'
+  S[i,t] = prod(1-gammaDistPairs[i,1:n.nb[i],t]) #site-level 'connectivity'
 
   # Model of colonization probability 
   gamma[i,t] = 1 - exp(-rho[i,t]*S[i,t])
@@ -132,30 +132,28 @@ model{
   taut ~ dgamma(0.001,0.001)
   
   #For missing data in flowering and dem data
-  sigma_N ~ dunif(0, 5)
-  tau_N <- 1/sigma_N^2
-  #tau_N ~ dgamma(0.001,0.001) 
-  sigma_flo ~ dunif(0, 5)
-  tau_flo <- 1/sigma_flo^2
+  sigma_N ~ dunif(0.00001, 10000) #N is highly variable
+  tau_N <- 1/(sigma_N*sigma_N)
+  sigma_flo ~ dunif(0.00001, 100)
+  tau_flo <- 1/(sigma_flo*sigma_flo)
   
   #Demography
-  beta_N[1] ~ dnorm(0, 1/1000)
-  beta_N[2] ~ dnorm(0, 1/1000)
-  beta_flo[1] ~ dnorm(0, 1/1000)
-  beta_flo[2] ~ dnorm(0, 1/1000)
+  beta_N[1] ~ dnorm(0, 0.137)
+  beta_N[2] ~ dnorm(0, 0.137)
+  beta_flo[1] ~ dnorm(0, 0.137)
+  beta_flo[2] ~ dnorm(0, 0.137)
 
   #Colonisation
-  beta_rho[1] ~ dnorm(0, 0.137)
-  beta_rho[2] ~ dnorm(0, 0.137)
+  beta_rho[1] ~ dnorm(0, 0.001)
+  beta_rho[2] ~ dnorm(0, 0.001)
   
   #Survival
-  beta_phi[1] ~ dnorm(0, 0.137)
-  beta_phi[2] ~ dnorm(0, 0.137)
+  beta_phi[1] ~ dnorm(0, 0.001)
+  beta_phi[2] ~ dnorm(0, 0.001)
   
   #Colonization
-  log.alpha ~ dnorm(0, 1/1000)   # Dispersal scale parameter
+  log.alpha ~ dnorm(0, 0.137)   #dispersal scale parameter
   alpha <- exp(log.alpha)
-  #rho ~ dbeta(1,1)  # Population-level per capita effective dispersal rate
 
   ###Derived quantities block
   #First year
@@ -192,37 +190,36 @@ sink()
 Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(jags_data$occ), t.max = ncol(jags_data$occ), y = jags_data$occ, N=jags_data$N, flo=jags_data$flo, elev=elev) 
 
 # Specify a function to generate inital values for the parameters
-inits_fn = function() list(z=matrix(data=rep(1, 2741*5), nrow=2741, ncol=5), log.alpha=-1, psi1 = 0.1, tau_N= 1, tau_flo= 1, beta_N=runif(2,-3,3), beta_flo=runif(2,-3,3), beta_phi=runif(2,-3,3), beta_rho=runif(2,-3,3))
+inits_fn = function() list(z=matrix(data=rep(1, 2741*5), nrow=2741, ncol=5), log.alpha=0.001, psi1 = 1, taut = 0.001, sigma_N= runif(1, 0, 5), sigma_flo= runif(1, 0, 5), beta_N=rnorm(2,0,0.001), beta_flo=runif(2,0,0.001), beta_phi=runif(2,0,0.137), beta_rho=runif(2,0,0.137))
 
 # Specify parameters for which posterior samples are saved
-para.names = c('n_occ', 'p_occ', 'log.alpha',
+para.names = c('n_occ', 'p_occ', 'log.alpha', 'sigma_N', 'sigma_flo', 'taut',
                'beta_rho', 'beta_phi', 'beta_N', 'beta_flo') 
 
 library('runjags')
 parsamples <- run.jags('occ1.txt', data=Data_simple, inits = inits_fn, n.chains = 3, monitor=para.names,
-                       adapt = 500, burnin = 500, sample = 1000)
-newparsamples <- extend.jags(parsamples, sample=1000)
+                       adapt = 1000, burnin = 4000, sample = 5000, method='rjparallel', jags.refresh=10)
 summary(parsamples)
-plot(parsamples)
+newparsamples <- extend.jags(parsamples, sample=5000)
+summary(newparsamples)
+plot(newparsamples)
 parsamples$mcmc
 plot(parsamples$mcmc)
 parsamples$summaries
 #extract(parsamples, what = "dic")
 #extract(parsamples, what = "ped")
 gelman.diag(parsamples$mcmc)
-#using rjags
-jagsModel_nop_v2 = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 2, inits = inits_fn)
-
-#update(jagsModel_nop_v2, 500)
 
 
-### 4) Continue the MCMC runs with sampling
-Samples = coda.samples(jagsModel_nop_v2, variable.names = para.names, n.iter = 1000)
-newSamples <- extend.jags(Samples)
+# #using rjags
+# jagsModel_nop_v2 = jags.model(file= "occ1.txt", data=Data_simple, n.chains = 2, inits = inits_fn)
+# update(jagsModel_nop_v2, 500)
+# Samples = coda.samples(jagsModel_nop_v2, variable.names = para.names, n.iter = 1000)
+# par_vals = summary(Samples)$statistics
+# summary(Samples)
+# plot(Samples,ask=T)
+# plot(Samples)
 
-par_vals = summary(Samples)$statistics
-summary(Samples)
-plot(Samples,ask=T)
-plot(Samples)
-save(parsamples, file='modeloutput122020.RData')
+
+save(newparsamples, file='modeloutput012021.RData')
 

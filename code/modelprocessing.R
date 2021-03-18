@@ -1,36 +1,34 @@
 #### Process Output from JAGS models ####
 #07.06.2019 C. Chisholm
 
+require(mcmcplots)
+library(MCMCvis)
+library(ggplot2)
+library(cowplot)
+
+source('~/Dropbox/Projects/Invasion Dynamics/models/code/helperfunctions.R')
 #load("jags_data.RData")
-#load('~/Dropbox/projects/Invasion Dynamics/models/modeloutput092020_2.RData')
+load('~/Dropbox/projects/Invasion Dynamics/models/modeloutput122020.RData')
+Samples <- parsamples$mcmc
 mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]]))
 #load('~/Dropbox/projects/Invasion Dynamics/models/jags_data.RData')
 
-source('~/Dropbox/Projects/Invasion Dynamics/models/code/helperfunctions.R')
 
 ### Convergence checks ####
-# # Plot the mcmc chain and the posterior sample for p
-# plot(Samples, ask=T)
-# 
-# # convergence check
-# gelman.plot(Samples)
-# coda::gelman.diag(Samples)
-# 
-# # Statistical summaries of the posterior sample
-# summary(Samples)
-# 
-# Samples.wd <- window(Samples, start = 1500 )
-# plot(Samples.wd)
+# Plot the mcmc chain and the posterior sample for p
+plot(Samples, ask=T)
 
-# compare parameter estimates to true values
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
+# convergence check
+gelman.plot(Samples)
+coda::gelman.diag(Samples)
 
-require(mcmcplots)
-# caterplot(Samples, "p", style = "plain")
-# coefs = mcmc[, c("p")]
-# mean(coefs)
-# sd(coefs)
-caterplot(Samples, "alpha", style = "plain")
+# Statistical summaries of the posterior sample
+summary(Samples)
+
+Samples.wd <- window(Samples, start = 1500)
+plot(Samples.wd)
+
+caterplot(Samples, "sigma_flo", style = "plain")
 
 n_occ <- rev(c(98, NA, 123, 135, 224, NA, NA, NA, NA, NA, NA, NA, 620))
 caterplot(Samples, "n_occ", style = "plain")
@@ -40,7 +38,7 @@ colMeans(coefs)
 sd(coefs)
 
 
-library(MCMCvis)
+
 MCMCsummary(Samples, params = 'beta_phi')
 MCMCsummary(Samples, params = 'beta_rho')
 
@@ -62,9 +60,10 @@ ggplot(dat, aes(x = value)) +
     strip.text.x = element_text(size = 8)
   )
 
-#mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
-coefs = mcmc[, "alpha"]
+coefs = mcmc[, "log.alpha"]
 dat <- reshape2::melt(coefs)
+MCMCsummary(Samples, params = 'log.alpha')
+caterplot(parsamples$mcmc, "log.alpha", style = "plain")
 
 ggplot(dat, aes(x = value)) +
   geom_histogram() +
@@ -83,9 +82,8 @@ ggplot(dat, aes(x = value)) +
 
 
 #### Plot 1: Occupied patches ####
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
-coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]",
-                 "n_occ[13]")]
+coefs = mcmc[, c("n_occ[1]", "n_occ[2]", "n_occ[3]", "n_occ[4]", "n_occ[5]")] #,
+#"n_occ[13]")]
 dat <- reshape2::melt(coefs)
 dat$variable <- factor(dat$variable, labels=c('2008', '2009', '2010', '2011', '2012',
                                               '2020'))
@@ -113,7 +111,6 @@ ggplot(dat, aes(x = value, y = variable, fill="#69b3a2")) +
 
 #### Plot 2: Overall C, E and Turnover over the years ####
 #Extinction
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]], Samples[[3]])) 
 coefs = mcmc[, c("sext[2]", "sext[3]", "sext[4]", "sext[5]")]
 dat <- reshape2::melt(coefs)
 dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
@@ -135,7 +132,6 @@ pext <- ggplot(dat, aes(x = value, y = variable, fill="#69b3a2", alpha=0.7)) +
 pext
 
 #Colonisation
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]]))#, Samples[[3]])) 
 coefs = mcmc[, c("scol[2]", "scol[3]", "scol[4]", "scol[5]")]
 dat <- reshape2::melt(coefs)
 dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
@@ -157,7 +153,6 @@ pcol <- ggplot(dat, aes(x = value, y = variable, fill="#69b3a2", alpha=0.7)) +
 pcol
 
 #Turnover
-mcmc <- as.data.frame(cbind(Samples[[1]], Samples[[2]]))#, Samples[[3]])) 
 coefs = mcmc[, c("stur[2]", "stur[3]", "stur[4]", "stur[5]")]
 dat <- reshape2::melt(coefs)
 dat$variable <- factor(dat$variable, labels=c('2009', '2010', '2011', '2012'))
@@ -259,8 +254,8 @@ pred_y <- (mean(mcmc[,'beta_N[1]']) + newdata* mean(mcmc[,'beta_N[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p3 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() +
-  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) +
+p3 <- ggplot(dat, aes(y = exp(estimate), x = elev)) + geom_line() +
+  geom_ribbon(aes(ymin = exp(l_cred), ymax = exp(u_cred)), fill = "orange", alpha = 0.3) +
   scale_y_continuous("Abundance") +
   scale_x_continuous("") + theme_classic(base_size = 16) + 
   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
@@ -290,8 +285,8 @@ pred_y <- (mean(mcmc[,'beta_flo[1]']) + newdata* mean(mcmc[,'beta_flo[2]']))
 newdata_x <- seq(min(elev), max(elev), length.out = nvalues)
 dat <- data.frame(elev=newdata_x, estimate=pred_y, l_cred=credible_lower, u_cred=credible_upper)
 
-p4 <- ggplot(dat, aes(y = estimate, x = elev)) + geom_line() + 
-  geom_ribbon(aes(ymin = l_cred, ymax = u_cred), fill = "orange", alpha = 0.3) + 
+p4 <- ggplot(dat, aes(y = exp(estimate), x = elev)) + geom_line() + 
+  geom_ribbon(aes(ymin = exp(l_cred), ymax = exp(u_cred)), fill = "orange", alpha = 0.3) + 
   scale_y_continuous("Total No. Flowers") +
   scale_x_continuous("Elevation (m)") + theme_classic(base_size = 16) + 
   geom_vline(xintercept = 1112, linetype="dashed", color = "darkgrey", size=1.5)
