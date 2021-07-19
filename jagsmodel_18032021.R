@@ -5,7 +5,7 @@ library(rjags)
 load('./jags_data.RData')
 
 # Create list of neighbours within max distance (using 500 for now)
-max.dist <- 500
+max.dist <- 1000
 NB.list <- apply(jags_data$distmat,1, function(x) which(x <= max.dist))
 
 # Number of neighbours per patch
@@ -135,12 +135,12 @@ cat(
   #taut ~ dgamma(0.001,0.001)
   
   #Demography
-  mu_N ~ dnorm(0, 0.01)
-  sigma_N ~ dexp(1) #0.5 for longer tail
+  mu_N ~ dnorm(0, 10)
+  sigma_N ~ dexp(0.25) #0.25 for longer tail, highest probs 0-5
   tau_N <- pow(sigma_N, -2)  
 
-  mu_flo ~ dnorm(0, 0.01)
-  sigma_flo ~ dexp(1)
+  mu_flo ~ dnorm(0, 10)
+  sigma_flo ~ dexp(0.5) #0.5 for highest prob 0-1
   tau_flo <- pow(sigma_flo, -2)  
 
   #Colonisation
@@ -148,7 +148,7 @@ cat(
   beta_rho[2] ~ dnorm(0, 0.37)
   
   #Survival
-  beta_phi[1] ~ dnorm(0, 0.37) # do sd=2.71, in bayesian regression lecture (variance =2.7)
+  beta_phi[1] ~ dnorm(0, 0.37) # do var 2.71, in bayesian regression lecture
   beta_phi[2] ~ dnorm(0, 0.37)
   
   #Colonization
@@ -174,18 +174,19 @@ sink()
 
 
 ### 2) Set up a list that contains all the necessary data
-
+library(runjags)
 Data_simple <- list(n.nb = n.nb, NB.mat = NB.mat, D.nb = D.nb, n.sites = nrow(jags_data$occ), t.max = ncol(jags_data$occ), y = jags_data$occ, N=jags_data$logN, flo=jags_data$logflo, elev=elev) 
 
 # Specify a function to generate inital values for the parameters
-inits_fn = function() list(z=matrix(data=rep(1, 2741*5), nrow=2741, ncol=5), alpha=rexp(1,1), psi1 = runif(1,0.01,1), sigma_flo= rexp(1, 1), sigma_N= rexp(1, 1), mu_N=abs(rnorm(1,0,5)), mu_flo=abs(rnorm(1,0,5)), beta_phi=rnorm(2,0,1.4), beta_rho=rnorm(2, 0, 1.4))
+inits_fn = function() list(z=matrix(data=rep(1, 2741*5), nrow=2741, ncol=5), alpha=rexp(1,1), psi1 = runif(1,0.01,1), sigma_flo= rexp(1, 0.5), sigma_N= rexp(1, 0.25), mu_N=abs(rnorm(1,0,5)), mu_flo=abs(rnorm(1,0,5)), beta_phi=rnorm(2,0,1.6), beta_rho=rnorm(2, 0, 1.6))
 
 # Specify parameters for which posterior samples are saved
 para.names = c('psi1', 'n_occ', 'log.alpha', 'sigma_flo', 'sigma_N',
                'beta_rho', 'beta_phi', 'mu_N', 'mu_flo') 
 
+
 parsamples <- run.jags('occ1.txt', data=Data_simple, inits = inits_fn, n.chains = 3, monitor=para.names,
-                       adapt = 1000, burnin = 4000, sample = 5000, method='rjparallel', jags.refresh=10)
+                       adapt = 1000, burnin = 10000, thin=10, sample = 10000, method='parallel')
 #started at 1200h, ended at ___
 #new run started at 16h
 summary(parsamples)
@@ -218,11 +219,11 @@ load('modeloutput012021.RData')
 
 #For N
 lN <- log(jags_data$N[!is.na(jags_data$N)])
-meanOfLogY <- mean(lN)
-sdOfLogY <- sd(lN)
+meanOfLogY <- mean(lN) #5.66
+sdOfLogY <- sd(lN) #2.7
 lN <- log(jags_data$flo[!is.na(jags_data$flo)])
-meanOfLogY <- mean(lN)
-sdOfLogY <- sd(lN)
+meanOfLogY <- mean(lN) #3.2
+sdOfLogY <- sd(lN) #0.25
 #sigmaOfLogY 
 dunif( 0.001*sdOfLogY , 1000*sdOfLogY ) #0.002, 2639
 #muOfLogY
@@ -230,8 +231,8 @@ dnorm( meanOfLogY , 0.001*1/sdOfLogY^2 ) #5.66, 0.00014
 
 #For flo
 lN <- log(jags_data$flo[!is.na(jags_data$flo)])
-meanOfLogY <- mean(lN)
-sdOfLogY <- sd(lN)
+meanOfLogY <- mean(lN) #3.2
+sdOfLogY <- sd(lN) #0.25
 #sigmaOfLogY 
 dunif( 0.001*sdOfLogY , 1000*sdOfLogY ) #0.0002, 250
 #muOfLogY
